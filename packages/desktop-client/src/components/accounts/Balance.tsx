@@ -11,6 +11,7 @@ import { q } from '@actual-app/core/shared/query';
 import type { Query } from '@actual-app/core/shared/query';
 import { getScheduledAmount } from '@actual-app/core/shared/schedules';
 import { isPreviewId } from '@actual-app/core/shared/transactions';
+import { tsToRelativeTime } from '@actual-app/core/shared/util';
 import type { AccountEntity } from '@actual-app/core/types/models';
 import { useHover } from 'usehooks-ts';
 
@@ -19,6 +20,7 @@ import { PrivacyFilter } from '#components/PrivacyFilter';
 import { CellValue, CellValueText } from '#components/spreadsheet/CellValue';
 import { useCachedSchedules } from '#hooks/useCachedSchedules';
 import { useFormat } from '#hooks/useFormat';
+import { useLocale } from '#hooks/useLocale';
 import { useSelectedItems } from '#hooks/useSelected';
 import { useSheetValue } from '#hooks/useSheetValue';
 import type { Binding } from '#spreadsheet';
@@ -195,6 +197,8 @@ export function Balances({
   const selectedItems = useSelectedItems();
   const buttonRef = useRef<HTMLButtonElement>(null);
   const isButtonHovered = useHover(buttonRef as RefObject<HTMLButtonElement>);
+  const { t } = useTranslation();
+  const locale = useLocale();
 
   return (
     <View
@@ -257,6 +261,20 @@ export function Balances({
           }}
         />
       </Button>
+
+      {account?.balance_current != null && (
+        <DetailedBalance
+          name={t('Online balance:')}
+          balance={account.balance_current}
+        />
+      )}
+      {account?.last_sync && (
+        <Text style={{ color: theme.pageTextSubdued, alignSelf: 'center' }}>
+          {t('Updated {{relativeTimeAgo}}', {
+            relativeTimeAgo: tsToRelativeTime(account.last_sync, locale),
+          })}
+        </Text>
+      )}
 
       {showExtraBalances && <MoreBalances balanceQuery={balanceQuery} />}
 
