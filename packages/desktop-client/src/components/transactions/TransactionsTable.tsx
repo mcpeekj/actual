@@ -268,17 +268,6 @@ const TransactionHeader = memo(
             onSort('payee', selectAscDesc(field, ascDesc, 'payee', 'asc'))
           }
         />
-        <HeaderCell
-          value={t('Notes')}
-          width="flex"
-          alignItems="flex"
-          marginLeft={-5}
-          id="notes"
-          icon={field === 'notes' ? ascDesc : 'clickable'}
-          onClick={() =>
-            onSort('notes', selectAscDesc(field, ascDesc, 'notes', 'asc'))
-          }
-        />
         {showCategory && (
           <HeaderCell
             value={t('Category')}
@@ -295,6 +284,17 @@ const TransactionHeader = memo(
             }
           />
         )}
+        <HeaderCell
+          value={t('Notes')}
+          width="flex"
+          alignItems="flex"
+          marginLeft={-5}
+          id="notes"
+          icon={field === 'notes' ? ascDesc : 'clickable'}
+          onClick={() =>
+            onSort('notes', selectAscDesc(field, ascDesc, 'notes', 'asc'))
+          }
+        />
         <HeaderCell
           value={t('Payment')}
           width={100}
@@ -1438,6 +1438,12 @@ const Transaction = memo(function Transaction({
             ? { color: theme.tableRowBackgroundHighlightText }
             : { color: theme.tableText }),
           ...style,
+          // Reconciled transactions are dimmed (Quicken-style) so they recede
+          // from the uncleared/cleared rows above them.
+          ...(reconciled && {
+            color: theme.tableTextInactive,
+            opacity: 0.7,
+          }),
           ...(isPreview && {
             color: theme.tableTextInactive,
             fontStyle: 'italic',
@@ -1645,18 +1651,6 @@ const Transaction = memo(function Transaction({
           />
         ))()}
 
-        <NotesCell
-          note={notes ?? ''}
-          scheduleNote={isPreview ? schedule?.name : null}
-          focused={focusedField === 'notes'}
-          valueStyle={valueStyle}
-          onClickTag={onNotesTagClick}
-          onUpdate={value => {
-            onUpdate('notes', value?.trim());
-          }}
-          onExpose={name => !isPreview && onEdit(id, name)}
-        />
-
         {(isPreview && !isChild) || isParent ? (
           <Cell
             /* Category field (Split button) for parent transactions */
@@ -1846,6 +1840,18 @@ const Transaction = memo(function Transaction({
             )}
           </CustomCell>
         )}
+
+        <NotesCell
+          note={notes ?? ''}
+          scheduleNote={isPreview ? schedule?.name : null}
+          focused={focusedField === 'notes'}
+          valueStyle={valueStyle}
+          onClickTag={onNotesTagClick}
+          onUpdate={value => {
+            onUpdate('notes', value?.trim());
+          }}
+          onExpose={name => !isPreview && onEdit(id, name)}
+        />
 
         <InputCell
           /* Debit field for all transactions */
@@ -3055,8 +3061,8 @@ export const TransactionTable = forwardRef(
         'date',
         'account',
         'payee',
-        'notes',
         'category',
+        'notes',
         'debit',
         'credit',
         'cleared',
@@ -3073,8 +3079,8 @@ export const TransactionTable = forwardRef(
         'date',
         'account',
         'payee',
-        'notes',
         'category',
+        'notes',
         'debit',
         'credit',
         'cleared',
@@ -3085,7 +3091,7 @@ export const TransactionTable = forwardRef(
 
     function getFields(item: TransactionEntity | undefined, fields: string[]) {
       fields = item?.is_child
-        ? ['select', 'payee', 'notes', 'category', 'debit', 'credit']
+        ? ['select', 'payee', 'category', 'notes', 'debit', 'credit']
         : fields.filter(
             f =>
               (props.showAccount || f !== 'account') &&
