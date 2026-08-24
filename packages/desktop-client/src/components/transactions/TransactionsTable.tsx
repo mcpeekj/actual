@@ -1161,7 +1161,10 @@ const Transaction = memo(function Transaction({
     }
   };
 
-  const onUpdateAfterConfirm: TransactionUpdateFunction = (name, value) => {
+  const onUpdateAfterConfirm: TransactionUpdateFunction = async (
+    name,
+    value,
+  ) => {
     const newTransaction = { ...transaction, [name]: value };
 
     // Don't change the note to an empty string if it's null (since they are both rendered the same)
@@ -1193,6 +1196,34 @@ const Transaction = memo(function Transaction({
 
     if (name === 'account' && transaction.account !== value) {
       newTransaction.reconciled = false;
+    }
+
+    // Quicken-style memorized payee: when a known payee is picked and the
+    // transaction has no category yet, auto-fill the category used on the
+    // most recent transaction with that payee. Only fills the category --
+    // never the memo or amount -- and never overrides an existing one.
+    // Skipped for split parents (their category is derived from children)
+    // and for transfer payees (transfers never carry a category).
+    if (
+      name === 'payee' &&
+      value &&
+      typeof value === 'string' &&
+      !value.startsWith('new:') &&
+      !transaction.is_parent &&
+      !payees.find(p => p.id === value)?.transfer_acct &&
+      !newTransaction.category
+    ) {
+      const { data } = await aqlQuery(
+        q('transactions')
+          .filter({ payee: value, category: { $ne: null } })
+          .select(['category'])
+          .orderBy({ date: 'desc' })
+          .limit(1),
+      );
+      const memorized = (data as Array<{ category?: string }>)?.[0]?.category;
+      if (memorized) {
+        newTransaction.category = memorized;
+      }
     }
 
     // Don't save a temporary value (a new payee) which will be
