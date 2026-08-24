@@ -16,6 +16,8 @@ import type {
 import { InputCell } from '#components/table';
 import { useContextMenu } from '#hooks/useContextMenu';
 import { useGlobalPref } from '#hooks/useGlobalPref';
+import { pushModal } from '#modals/modalsSlice';
+import { useDispatch } from '#redux';
 
 import { SidebarCategoryButtons } from './SidebarCategoryButtons';
 
@@ -59,6 +61,7 @@ export function SidebarCategory({
   onHideNewCategory,
 }: SidebarCategoryProps) {
   const { t } = useTranslation();
+  const dispatch = useDispatch();
   const [categoryExpandedStatePref] = useGlobalPref('categoryExpandedState');
   const categoryExpandedState = categoryExpandedStatePref ?? 0;
 
@@ -76,6 +79,23 @@ export function SidebarCategory({
         name: 'toggle-visibility',
         text: category.hidden ? t('Show') : t('Hide'),
         onClick: () => onSave({ ...category, hidden: !category.hidden }),
+      },
+      // A "new" (unsaved) category has no id to scope accounts against yet.
+      category.id !== 'new' && {
+        name: 'accounts',
+        text: t('Accounts…'),
+        onClick: () =>
+          dispatch(
+            pushModal({
+              modal: {
+                name: 'category-accounts',
+                options: {
+                  categoryId: category.id,
+                  categoryName: category.name,
+                },
+              },
+            }),
+          ),
       },
       {
         name: 'delete',

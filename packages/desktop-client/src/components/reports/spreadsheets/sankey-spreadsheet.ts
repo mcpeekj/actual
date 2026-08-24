@@ -12,6 +12,8 @@ import { getColorScale } from '#components/reports/chart-theme';
 import type { useSpreadsheet } from '#hooks/useSpreadsheet';
 import { aqlQuery } from '#queries/aqlQuery';
 
+import { getCategoryAccountsScoping } from './budgetAccountScoping';
+
 type BudgetMonthCategory = {
   id: string;
   name: string;
@@ -494,20 +496,30 @@ async function fetchCategoryData(
   end: string,
   groupAccounts: boolean,
 ): Promise<CategoryEntry[]> {
+  // Scoped categories count spend only from their assigned accounts.
+  const scoping = await getCategoryAccountsScoping();
+
   const nested = await Promise.all(
     categoryGroups.map(async (categoryGroup: CategoryGroupEntity) => {
       const entries = await Promise.all(
         (categoryGroup.categories || []).map(async category => {
+          const query = q('transactions')
+            .filter({ [conditionsOpKey]: filters })
+            .filter({
+              $and: [
+                { date: { $gte: monthUtils.firstDayOfMonth(start) } },
+                { date: { $lte: monthUtils.lastDayOfMonth(end) } },
+              ],
+            })
+            .filter({ category: category.id });
+
+          const scopedAccounts = scoping[category.id];
+          const scopedQuery = scopedAccounts
+            ? query.filter({ account: { $oneof: scopedAccounts } })
+            : query;
+
           const results = await aqlQuery(
-            q('transactions')
-              .filter({ [conditionsOpKey]: filters })
-              .filter({
-                $and: [
-                  { date: { $gte: monthUtils.firstDayOfMonth(start) } },
-                  { date: { $lte: monthUtils.lastDayOfMonth(end) } },
-                ],
-              })
-              .filter({ category: category.id })
+            scopedQuery
               .groupBy(
                 categoryGroup.is_income
                   ? [

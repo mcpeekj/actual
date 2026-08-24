@@ -1,6 +1,7 @@
 // @ts-strict-ignore
 import React, { useEffect, useEffectEvent, useMemo, useState } from 'react';
 import type { ComponentType } from 'react';
+import { useTranslation } from 'react-i18next';
 
 import { styles } from '@actual-app/components/styles';
 import { View } from '@actual-app/components/view';
@@ -9,6 +10,7 @@ import * as monthUtils from '@actual-app/core/shared/months';
 import type {
   CategoryEntity,
   CategoryGroupEntity,
+  RuleConditionEntity,
 } from '@actual-app/core/types/models';
 
 import {
@@ -37,6 +39,7 @@ import { TrackingBudgetProvider } from './tracking/TrackingBudgetContext';
 import { prewarmAllMonths, prewarmMonth } from './util';
 
 export function Budget() {
+  const { t } = useTranslation();
   const currentMonth = monthUtils.currentMonth();
   const spreadsheet = useSpreadsheet();
   const navigate = useNavigate();
@@ -130,8 +133,8 @@ export function Budget() {
     });
   };
 
-  const onShowActivity = (categoryId, month) => {
-    const filterConditions = [
+  const onShowActivity = async (categoryId, month) => {
+    const filterConditions: Array<Partial<RuleConditionEntity>> = [
       { field: 'category', op: 'is', value: categoryId, type: 'id' },
       {
         field: 'date',
@@ -141,6 +144,17 @@ export function Budget() {
         type: 'date',
       },
     ];
+
+    // A scoped category's activity page must only show its assigned accounts
+    // so the drill-down agrees with the budget table.
+    const scopedAccounts = (await send('category-accounts'))[categoryId];
+    if (scopedAccounts) {
+      filterConditions.push({
+        customName: t('Scoped accounts'),
+        queryFilter: { account: { $oneof: scopedAccounts } },
+      });
+    }
+
     void navigate('/accounts', {
       state: {
         goBack: true,

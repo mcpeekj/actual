@@ -91,6 +91,12 @@ export const schema = {
     sort_order: f('float'),
     tombstone: f('boolean'),
   },
+  category_accounts: {
+    id: f('id'),
+    category_id: f('id', { ref: 'categories' }),
+    account_id: f('id', { ref: 'accounts' }),
+    tombstone: f('boolean'),
+  },
   category_groups: {
     id: f('id'),
     name: f('string'),

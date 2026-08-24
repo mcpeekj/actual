@@ -17,6 +17,7 @@ import { fromDateRepr } from '#components/reports/util';
 import type { useSpreadsheet } from '#hooks/useSpreadsheet';
 import { aqlQuery } from '#queries/aqlQuery';
 
+import { getBudgetAccountScopingFilter } from './budgetAccountScoping';
 import {
   filterCategoriesByConditions,
   isSupportedCategoryCondition,
@@ -111,50 +112,42 @@ export function createSpendingSpreadsheet({
 
     const conditionsOpKey = conditionsOp === 'or' ? '$or' : '$and';
 
+    // Scoped categories count spend only from their assigned accounts; applied
+    // as a separate AND filter so it holds for either conditionsOpKey.
+    const scopingFilter = await getBudgetAccountScopingFilter();
+
+    const buildQuery = (
+      name: 'assets' | 'debts',
+      start: string,
+      end: string,
+    ) => {
+      const query = makeQuery(
+        name,
+        start,
+        end,
+        interval,
+        conditionsOpKey,
+        filters,
+      );
+      return scopingFilter ? query.filter(scopingFilter) : query;
+    };
+
     const [assets, debts] = await Promise.all([
-      aqlQuery(
-        makeQuery(
-          'assets',
-          startDate,
-          endDate,
-          interval,
-          conditionsOpKey,
-          filters,
-        ),
-      ).then(({ data }) => data),
-      aqlQuery(
-        makeQuery(
-          'debts',
-          startDate,
-          endDate,
-          interval,
-          conditionsOpKey,
-          filters,
-        ),
-      ).then(({ data }) => data),
+      aqlQuery(buildQuery('assets', startDate, endDate)).then(
+        ({ data }) => data,
+      ),
+      aqlQuery(buildQuery('debts', startDate, endDate)).then(
+        ({ data }) => data,
+      ),
     ]);
 
     const [assetsTo, debtsTo] = await Promise.all([
-      aqlQuery(
-        makeQuery(
-          'assets',
-          startDateTo,
-          endDateTo,
-          interval,
-          conditionsOpKey,
-          filters,
-        ),
-      ).then(({ data }) => data),
-      aqlQuery(
-        makeQuery(
-          'debts',
-          startDateTo,
-          endDateTo,
-          interval,
-          conditionsOpKey,
-          filters,
-        ),
-      ).then(({ data }) => data),
+      aqlQuery(buildQuery('assets', startDateTo, endDateTo)).then(
+        ({ data }) => data,
+      ),
+      aqlQuery(buildQuery('debts', startDateTo, endDateTo)).then(
+        ({ data }) => data,
+      ),
     ]);
 
     const overlapAssets =

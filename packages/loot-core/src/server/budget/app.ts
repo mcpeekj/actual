@@ -10,7 +10,11 @@ import { batchMessages } from '#server/sync';
 import { undoable } from '#server/undo';
 import * as monthUtils from '#shared/months';
 import { q } from '#shared/query';
-import type { CategoryEntity, CategoryGroupEntity } from '#types/models';
+import type {
+  AccountEntity,
+  CategoryEntity,
+  CategoryGroupEntity,
+} from '#types/models';
 
 import * as actions from './actions';
 import * as budget from './base';
@@ -51,6 +55,8 @@ export type BudgetHandlers = {
   'tracking-budget-month': typeof trackingBudgetMonth;
   'category-create': typeof createCategory;
   'category-update': typeof updateCategory;
+  'category-accounts': typeof getCategoryAccounts;
+  'category-update-accounts': typeof updateCategoryAccounts;
   'category-move': typeof moveCategory;
   'categories-sort': typeof sortCategories;
   'category-delete': typeof deleteCategory;
@@ -148,6 +154,11 @@ app.method('envelope-budget-month', envelopeBudgetMonth);
 app.method('tracking-budget-month', trackingBudgetMonth);
 app.method('category-create', mutator(undoable(createCategory)));
 app.method('category-update', mutator(undoable(updateCategory)));
+app.method('category-accounts', getCategoryAccounts);
+app.method(
+  'category-update-accounts',
+  mutator(undoable(updateCategoryAccounts)),
+);
 app.method('category-move', mutator(undoable(moveCategory)));
 app.method('categories-sort', mutator(undoable(sortCategories)));
 app.method('category-delete', mutator(undoable(deleteCategory)));
@@ -349,6 +360,77 @@ async function updateCategory(category: CategoryEntity): Promise<void> {
     }
     throw e;
   }
+}
+
+// Which accounts (if any) a category's budget is scoped to. An empty list
+// means "all on-budget accounts" -- the default behavior.
+async function getCategoryAccounts(): Promise<
+  Record<CategoryEntity['id'], AccountEntity['id'][]>
+> {
+  const { data } = await aqlQuery(
+    q('category_accounts').select(['category_id', 'account_id']),
+  );
+  const result: Record<string, string[]> = {};
+  for (const row of data as Array<{
+    category_id: string;
+    account_id: string;
+  }>) {
+    (result[row.category_id] ??= []).push(row.account_id);
+  }
+  return result;
+}
+
+// Replace the account scoping for a category. Off-budget and tombstoned
+// accounts are dropped so the join table only ever holds on-budget accounts
+// (the spend queries in base.ts also enforce `a.offbudget = 0`, so scoping
+// can never count an off-budget transaction either way).
+//
+// Rows are written via db.insert/delete_ so they emit CRDT messages like every
+// other table: that keeps the change in sync across devices and makes undo
+// revert the scoping (restoring the old spreadsheet cached values too).
+async function updateCategoryAccounts({
+  id,
+  accountIds,
+}: {
+  id: CategoryEntity['id'];
+  accountIds: AccountEntity['id'][];
+}): Promise<void> {
+  await batchMessages(async () => {
+    const validRows = db.runQuery<{ id: string }>(
+      'SELECT id FROM accounts WHERE offbudget = 0 AND tombstone = 0',
+      [],
+      true,
+    );
+    const validAccountIds = new Set(validRows.map(row => row.id));
+    const toInsert = accountIds.filter(accountId =>
+      validAccountIds.has(accountId),
+    );
+
+    const existing = await db.all<{ id: string }>(
+      'SELECT id FROM category_accounts WHERE category_id = ? AND tombstone = 0',
+      [id],
+    );
+    for (const row of existing) {
+      await db.delete_('category_accounts', row.id);
+    }
+    for (const accountId of toInsert) {
+      await db.insertWithUUID('category_accounts', {
+        category_id: id,
+        account_id: accountId,
+        tombstone: 0,
+      });
+    }
+
+    // Recompute the category's spend in every created budget month so the
+    // new scoping shows immediately, not just on the next cold build.
+    const { createdMonths = new Set() } = sheet.get().meta();
+    createdMonths.forEach(month => {
+      const sheetName = monthUtils.sheetForMonth(month);
+      sheet
+        .get()
+        .recompute(resolveName(sheetName, 'sum-amount-' + id));
+    });
+  });
 }
 
 async function moveCategory({

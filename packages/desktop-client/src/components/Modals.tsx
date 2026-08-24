@@ -20,6 +20,7 @@ import { BudgetAutomationsModal } from './modals/BudgetAutomationsModal';
 import { BudgetPageMenuModal } from './modals/BudgetPageMenuModal';
 import { CategoryAutocompleteModal } from './modals/CategoryAutocompleteModal';
 import { CategoryGroupAutocompleteModal } from './modals/CategoryGroupAutocompleteModal';
+import { CategoryAccountsModal } from './modals/CategoryAccountsModal';
 import { CategoryGroupMenuModal } from './modals/CategoryGroupMenuModal';
 import { CategoryMenuModal } from './modals/CategoryMenuModal';
 import { CloseAccountModal } from './modals/CloseAccountModal';
@@ -144,6 +145,9 @@ export function Modals() {
 
         case 'confirm-category-delete':
           return <ConfirmCategoryDeleteModal key={key} {...modal.options} />;
+
+        case 'category-accounts':
+          return <CategoryAccountsModal key={key} {...modal.options} />;
 
         case 'confirm-payees-merge':
           return <ConfirmPayeesMergeModal key={key} {...modal.options} />;

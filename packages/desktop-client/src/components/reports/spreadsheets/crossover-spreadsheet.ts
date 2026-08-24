@@ -6,6 +6,8 @@ import * as d from 'date-fns';
 import type { useSpreadsheet } from '#hooks/useSpreadsheet';
 import { aqlQuery } from '#queries/aqlQuery';
 
+import { getCategoryAccountsScoping } from './budgetAccountScoping';
+
 type MonthlyAgg = { date: string; amount: number };
 
 // Utility functions for Hampel identifier
@@ -126,10 +128,24 @@ export function createCrossoverSpreadsheet({
           .map(date => ({ date, amount: 0 }));
       }
 
+      // Scoped categories count spend only from their assigned accounts.
+      const scoping = await getCategoryAccountsScoping();
       const query = q('transactions')
         .filter({
           $and: [
-            { $or: expenseCategoryIds.map(id => ({ category: id })) },
+            {
+              $or: expenseCategoryIds.map(id => {
+                const scopedAccounts = scoping[id];
+                return scopedAccounts
+                  ? {
+                      $and: [
+                        { category: id },
+                        { account: { $oneof: scopedAccounts } },
+                      ],
+                    }
+                  : { category: id };
+              }),
+            },
             { date: { $gte: monthUtils.firstDayOfMonth(start) } },
             { date: { $lte: monthUtils.lastDayOfMonth(end) } },
           ],

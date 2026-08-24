@@ -9,6 +9,7 @@ import type { SyncedPrefs } from '@actual-app/core/types/prefs';
 import type { QueryDataEntity } from '#components/reports/ReportOptions';
 import { aqlQuery } from '#queries/aqlQuery';
 
+import { getBudgetAccountScopingFilter } from './budgetAccountScoping';
 import { fetchBudgetData } from './budgetDataQuery';
 import { makeQuery } from './makeQuery';
 
@@ -50,27 +51,26 @@ export async function fetchSpreadsheetQueryData({
     });
   }
 
+  // Scoped categories must count spend only from their assigned accounts, in
+  // every report. Applied as a separate AND filter so it holds regardless of
+  // whether the user's conditions are combined with "and" or "or".
+  const scopingFilter = await getBudgetAccountScopingFilter();
+
+  const buildQuery = (name: 'assets' | 'debts') => {
+    const query = makeQuery(
+      name,
+      startDate,
+      endDate,
+      interval,
+      conditionsOpKey,
+      filters,
+    );
+    return scopingFilter ? query.filter(scopingFilter) : query;
+  };
+
   const [assets, debts] = await Promise.all([
-    aqlQuery(
-      makeQuery(
-        'assets',
-        startDate,
-        endDate,
-        interval,
-        conditionsOpKey,
-        filters,
-      ),
-    ).then(({ data }) => data),
-    aqlQuery(
-      makeQuery(
-        'debts',
-        startDate,
-        endDate,
-        interval,
-        conditionsOpKey,
-        filters,
-      ),
-    ).then(({ data }) => data),
+    aqlQuery(buildQuery('assets')).then(({ data }) => data),
+    aqlQuery(buildQuery('debts')).then(({ data }) => data),
   ]);
 
   return { assets, debts };

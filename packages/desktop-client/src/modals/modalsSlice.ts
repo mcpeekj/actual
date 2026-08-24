@@ -79,6 +79,13 @@ export type Modal =
       };
     }
   | {
+      name: 'category-accounts';
+      options: {
+        categoryId: CategoryEntity['id'];
+        categoryName?: string;
+      };
+    }
+  | {
       name: 'confirm-payees-merge';
       options: {
         payeeIds: string[];

@@ -3,6 +3,7 @@ import { useTranslation } from 'react-i18next';
 import { send } from '@actual-app/core/platform/client/connection';
 import type { IntegerAmount } from '@actual-app/core/shared/util';
 import type {
+  AccountEntity,
   CategoryEntity,
   CategoryGroupEntity,
 } from '@actual-app/core/types/models';
@@ -246,12 +247,39 @@ export function useSaveCategoryMutation() {
   });
 }
 
+type UpdateCategoryAccountsPayload = {
+  id: CategoryEntity['id'];
+  accountIds: AccountEntity['id'][];
+};
+
+export function useUpdateCategoryAccountsMutation() {
+  const queryClient = useQueryClient();
+  const dispatch = useDispatch();
+  const { t } = useTranslation();
+
+  return useMutation({
+    mutationFn: async ({ id, accountIds }: UpdateCategoryAccountsPayload) => {
+      await send('category-update-accounts', { id, accountIds });
+    },
+    onSuccess: () => invalidateQueries(queryClient),
+    onError: error => {
+      console.error('Error updating category accounts:', error);
+      dispatchErrorNotification(
+        dispatch,
+        t(
+          'There was an error updating the category accounts. Please try again.',
+        ),
+        error,
+      );
+    },
+  });
+}
+
 type DeleteCategoryPayload = {
   id: CategoryEntity['id'];
 };
 
-export function useDeleteCategoryMutation() {
-  const queryClient = useQueryClient();
+export function useDeleteCategoryMutation() {  const queryClient = useQueryClient();
   const dispatch = useDispatch();
   const { t } = useTranslation();
 

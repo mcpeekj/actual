@@ -58,6 +58,16 @@ function getSumAmountsByMonth(
       WHERE t.date >= ${rangeStart} AND t.date <= ${rangeEnd}
         AND t.category IS NOT NULL
         AND a.offbudget = 0
+        AND (
+          NOT EXISTS (
+            SELECT 1 FROM category_accounts ca
+            WHERE ca.category_id = t.category AND ca.tombstone = 0
+          )
+          OR t.account IN (
+            SELECT ca.account_id FROM category_accounts ca
+            WHERE ca.category_id = t.category AND ca.tombstone = 0
+          )
+        )
       GROUP BY t.category, t.date / 100`,
     [],
     true,
@@ -79,7 +89,17 @@ export function createCategory(cat, sheetName, prevSheetName, start, end) {
         `SELECT SUM(amount) as amount FROM v_transactions_internal_alive t
            LEFT JOIN accounts a ON a.id = t.account
          WHERE t.date >= ${start} AND t.date <= ${end}
-           AND category = '${cat.id}' AND a.offbudget = 0`,
+           AND category = '${cat.id}' AND a.offbudget = 0
+           AND (
+             NOT EXISTS (
+               SELECT 1 FROM category_accounts ca
+               WHERE ca.category_id = '${cat.id}' AND ca.tombstone = 0
+             )
+             OR t.account IN (
+               SELECT ca.account_id FROM category_accounts ca
+               WHERE ca.category_id = '${cat.id}' AND ca.tombstone = 0
+             )
+           )`,
         [],
         true,
       );
@@ -117,6 +137,23 @@ function handleAccountChange(months, oldValue, newValue) {
       });
     });
   }
+}
+
+// Scoping rows changed for a category (assigned, cleared, or undone). The
+// `sum-amount` cells are dynamic (not query cells), so `triggerDatabaseChanges`
+// won't dirty them on table changes -- recompute every created month here.
+// This runs on every message apply, so undo/redo and remote sync stay in sync.
+function handleCategoryAccountChange(months, oldValue, newValue) {
+  const categoryId = newValue?.category_id ?? oldValue?.category_id;
+  if (!categoryId) {
+    return;
+  }
+  months.forEach(month => {
+    const sheetName = monthUtils.sheetForMonth(month);
+    sheet
+      .get()
+      .recompute(resolveName(sheetName, 'sum-amount-' + categoryId));
+  });
 }
 
 function handleTransactionChange(transaction, changedFields) {
@@ -234,6 +271,8 @@ export function triggerBudgetChanges(oldValues, newValues) {
           }
         } else if (table === 'accounts') {
           handleAccountChange(createdMonths, oldValue, newValue);
+        } else if (table === 'category_accounts') {
+          handleCategoryAccountChange(createdMonths, oldValue, newValue);
         }
       });
     });
