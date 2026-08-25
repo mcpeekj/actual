@@ -1,7 +1,6 @@
 import React, { useEffect, useEffectEvent, useRef } from 'react';
 import type { ReactElement } from 'react';
 import { ErrorBoundary } from 'react-error-boundary';
-import { useTranslation } from 'react-i18next';
 import { Navigate, Route, Routes, useHref, useLocation } from 'react-router';
 
 import { useResponsive } from '@actual-app/components/hooks/useResponsive';
@@ -13,13 +12,10 @@ import { getLatestAppVersion, sync } from '#app/appSlice';
 import { ProtectedRoute } from '#auth/ProtectedRoute';
 import { Permissions } from '#auth/types';
 import { useAccounts } from '#hooks/useAccounts';
-import { useGlobalPref } from '#hooks/useGlobalPref';
-import { useLocalPref } from '#hooks/useLocalPref';
 import { useMetaThemeColor } from '#hooks/useMetaThemeColor';
 import { useNavigate } from '#hooks/useNavigate';
 import { ScrollProvider } from '#hooks/useScrollListener';
-import { addNotification } from '#notifications/notificationsSlice';
-import { useDispatch, useSelector } from '#redux';
+import { useDispatch } from '#redux';
 
 import { UserAccessPage } from './admin/UserAccess/UserAccessPage';
 import { UserDirectoryPage } from './admin/UserDirectory/UserDirectoryPage';
@@ -93,17 +89,8 @@ export function FinancesApp() {
 
   const location = useLocation();
   const dispatch = useDispatch();
-  const { t } = useTranslation();
 
   const { data: accounts, isFetching: isAccountsFetching } = useAccounts();
-
-  const versionInfo = useSelector(state => state.app.versionInfo);
-  const [notifyWhenUpdateIsAvailable] = useGlobalPref(
-    'notifyWhenUpdateIsAvailable',
-  );
-  const [lastUsedVersion, setLastUsedVersion] = useLocalPref(
-    'flags.updateNotificationShownForVersion',
-  );
 
   const multiuserEnabled = useMultiuserEnabled();
 
@@ -113,31 +100,6 @@ export function FinancesApp() {
     setTimeout(async () => {
       await dispatch(sync());
     }, 100);
-
-    async function run() {
-      await global.Actual.waitForUpdateReadyForDownload(); // This will only resolve when an update is ready
-      dispatch(
-        addNotification({
-          notification: {
-            type: 'message',
-            title: t('A new version of Actual is available!'),
-            message: t(
-              'Click the button below to reload and apply the update.',
-            ),
-            sticky: true,
-            id: 'update-reload-notification',
-            button: {
-              title: t('Update now'),
-              action: async () => {
-                await global.Actual.applyAppUpdate();
-              },
-            },
-          },
-        }),
-      );
-    }
-
-    void run();
   });
 
   useEffect(() => init(), []);
@@ -145,52 +107,6 @@ export function FinancesApp() {
   useEffect(() => {
     void dispatch(getLatestAppVersion());
   }, [dispatch]);
-
-  useEffect(() => {
-    if (notifyWhenUpdateIsAvailable && versionInfo) {
-      if (
-        versionInfo.isOutdated &&
-        lastUsedVersion !== versionInfo.latestVersion
-      ) {
-        dispatch(
-          addNotification({
-            notification: {
-              type: 'message',
-              title: t('A new version of Actual is available!'),
-              message:
-                (import.meta.env.REACT_APP_IS_PIKAPODS ?? '').toLowerCase() ===
-                'true'
-                  ? t(
-                      'A new version of Actual is available! Your Pikapods instance will be automatically updated in the next few days - no action needed.',
-                    )
-                  : t(
-                      'Version {{latestVersion}} of Actual was recently released.',
-                      { latestVersion: versionInfo.latestVersion },
-                    ),
-              sticky: true,
-              id: 'update-notification',
-              button: {
-                title: t('Open changelog'),
-                action: () => {
-                  window.open('https://actualbudget.org/docs/releases');
-                },
-              },
-              onClose: () => {
-                setLastUsedVersion(versionInfo.latestVersion);
-              },
-            },
-          }),
-        );
-      }
-    }
-  }, [
-    dispatch,
-    lastUsedVersion,
-    notifyWhenUpdateIsAvailable,
-    setLastUsedVersion,
-    t,
-    versionInfo,
-  ]);
 
   const scrollableRef = useRef<HTMLDivElement>(null);
 
