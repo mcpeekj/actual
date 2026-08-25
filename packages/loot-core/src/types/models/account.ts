@@ -16,6 +16,12 @@ export type AccountEntity = {
   bankId: string | null;
   mask: string | null; // end of bank account number
   official_name: string | null;
+  // Account details (editable). `type`/`subtype` mirror the DB columns, which
+  // predate the fork; `account_number` and `website_url` are user-provided.
+  type?: string | null;
+  subtype?: string | null;
+  account_number?: string | null;
+  website_url?: string | null;
   balance_current: number | null;
   balance_available: number | null;
   balance_limit: number | null;

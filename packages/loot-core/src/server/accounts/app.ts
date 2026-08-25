@@ -95,12 +95,25 @@ async function updateAccount({
   id,
   name,
   last_reconciled,
+  type,
+  subtype,
+  account_number,
+  website_url,
 }: Pick<AccountEntity, 'id' | 'name'> &
-  Partial<Pick<AccountEntity, 'last_reconciled'>>) {
+  Partial<
+    Pick<
+      AccountEntity,
+      'last_reconciled' | 'type' | 'subtype' | 'account_number' | 'website_url'
+    >
+  >) {
   await db.update('accounts', {
     id,
     name,
     ...(last_reconciled && { last_reconciled }),
+    ...(type !== undefined && { type }),
+    ...(subtype !== undefined && { subtype }),
+    ...(account_number !== undefined && { account_number }),
+    ...(website_url !== undefined && { website_url }),
   });
   return {};
 }
@@ -123,6 +136,10 @@ async function getAccounts(): Promise<AccountEntity[]> {
         bankId: dbAccount.bankId ?? null,
         mask: dbAccount.mask ?? null,
         official_name: dbAccount.official_name ?? null,
+        type: dbAccount.type ?? null,
+        subtype: dbAccount.subtype ?? null,
+        account_number: dbAccount.account_number ?? null,
+        website_url: dbAccount.website_url ?? null,
         balance_current: dbAccount.balance_current ?? null,
         balance_available: dbAccount.balance_available ?? null,
         balance_limit: dbAccount.balance_limit ?? null,

@@ -9,6 +9,7 @@ import { AnimatedLoading } from '@actual-app/components/icons/AnimatedLoading';
 import {
   SvgAdd,
   SvgDotsHorizontalTriple,
+  SvgGlobe,
 } from '@actual-app/components/icons/v1';
 import {
   SvgArrowsExpand3,
@@ -693,7 +694,31 @@ function AccountNameField({
               : accountName}
           </View>
 
-          <View style={{ flexDirection: 'row', width: 50 }}>
+          <View style={{ flexDirection: 'row', width: 76 }}>
+            {account?.website_url && (
+              <Button
+                variant="bare"
+                aria-label={t('Open website')}
+                className="hover-visible"
+                onPress={() => {
+                  if (!account?.website_url) {
+                    return;
+                  }
+                  const url = account.website_url.startsWith('http')
+                    ? account.website_url
+                    : `https://${account.website_url}`;
+                  window.open(url, '_blank', 'noopener,noreferrer');
+                }}
+              >
+                <SvgGlobe
+                  style={{
+                    width: 13,
+                    height: 13,
+                    color: theme.pageTextSubdued,
+                  }}
+                />
+              </Button>
+            )}
             {isNameEditable && account && (
               <NotesButton
                 id={`account-${account.id}`}
@@ -739,6 +764,7 @@ type AccountMenuProps = {
       | 'close'
       | 'reopen'
       | 'export'
+      | 'details'
       | 'toggle-balance'
       | 'remove-sorting'
       | 'toggle-cleared'
@@ -805,6 +831,7 @@ function AccountMenu({
             : t('Show reconciled transactions'),
         },
         { name: 'export', text: t('Export') },
+        { name: 'details', text: t('Account details') },
         ...(account && !account.closed
           ? canSync
             ? [

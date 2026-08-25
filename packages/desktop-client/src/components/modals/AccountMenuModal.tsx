@@ -6,16 +6,26 @@ import { Button } from '@actual-app/components/button';
 import {
   SvgClose,
   SvgDotsHorizontalTriple,
+  SvgGlobe,
   SvgLockOpen,
 } from '@actual-app/components/icons/v1';
 import { SvgLockClosed, SvgNotesPaper } from '@actual-app/components/icons/v2';
+import { Input } from '@actual-app/components/input';
 import { Menu } from '@actual-app/components/menu';
 import { Popover } from '@actual-app/components/popover';
+import { Select } from '@actual-app/components/select';
 import { styles } from '@actual-app/components/styles';
+import { Text } from '@actual-app/components/text';
 import { theme } from '@actual-app/components/theme';
 import { View } from '@actual-app/components/view';
 import type { AccountEntity } from '@actual-app/core/types/models';
 
+import { useUpdateAccountMutation } from '#accounts';
+import {
+  ACCOUNT_TYPES,
+  accountTypeLabel,
+  maskAccountNumber,
+} from '#components/accounts/accountDetails';
 import {
   Modal,
   ModalCloseButton,
@@ -34,6 +44,114 @@ type AccountMenuModalProps = Extract<
   ModalType,
   { name: 'account-menu' }
 >['options'];
+
+type AccountDetailsSectionProps = {
+  account: AccountEntity;
+};
+
+function AccountDetailsSection({ account }: AccountDetailsSectionProps) {
+  const { t } = useTranslation();
+  const { mutate: updateAccount } = useUpdateAccountMutation();
+  const [number, setNumber] = useState(account.account_number ?? '');
+  const [revealNumber, setRevealNumber] = useState(false);
+  const [website, setWebsite] = useState(account.website_url ?? '');
+
+  const save = (patch: Partial<AccountEntity>) => {
+    updateAccount({ account: { ...account, ...patch } });
+  };
+
+  const rowStyle: CSSProperties = {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    marginBottom: 8,
+  };
+  const labelStyle: CSSProperties = {
+    ...styles.mediumText,
+    color: theme.formLabelText,
+    flexShrink: 0,
+  };
+
+  return (
+    <View
+      style={{
+        padding: 12,
+        borderBottom: `1px solid ${theme.tableBorder}`,
+      }}
+    >
+      <Text style={{ ...styles.mediumText, fontWeight: 700, marginBottom: 10 }}>
+        <Trans>Details</Trans>
+      </Text>
+
+      <View style={rowStyle}>
+        <Text style={labelStyle}>
+          <Trans>Type</Trans>
+        </Text>
+        <View style={{ flex: 1 }}>
+          <Select
+            bare
+            options={ACCOUNT_TYPES}
+            value={account.type ?? ''}
+            defaultLabel={accountTypeLabel(account.type) ?? t('No type')}
+            onChange={value => save({ type: value || null })}
+            style={{ width: '100%' }}
+          />
+        </View>
+      </View>
+
+      <View style={rowStyle}>
+        <Text style={labelStyle}>
+          <Trans>Account number</Trans>
+        </Text>
+        <Input
+          value={revealNumber ? number : maskAccountNumber(number)}
+          placeholder="•••• ••••"
+          onFocus={() => setRevealNumber(true)}
+          onChangeValue={setNumber}
+          onUpdate={() =>
+            save({ account_number: number.trim() ? number.trim() : null })
+          }
+          style={{ flex: 1 }}
+        />
+        <Button
+          variant="bare"
+          aria-label={
+            revealNumber ? t('Hide account number') : t('Show account number')
+          }
+          onPress={() => setRevealNumber(prev => !prev)}
+        >
+          {revealNumber ? t('Hide') : t('Show')}
+        </Button>
+      </View>
+
+      <View style={rowStyle}>
+        <Text style={labelStyle}>
+          <Trans>Website</Trans>
+        </Text>
+        <Input
+          value={website}
+          placeholder="https://"
+          onChangeValue={setWebsite}
+          onUpdate={() =>
+            save({ website_url: website.trim() ? website.trim() : null })
+          }
+          style={{ flex: 1 }}
+        />
+        {website.trim() && (
+          <Button
+            variant="bare"
+            aria-label={t('Open website')}
+            onPress={() =>
+              window.open(website.trim(), '_blank', 'noopener,noreferrer')
+            }
+          >
+            <SvgGlobe width={15} height={15} />
+          </Button>
+        )}
+      </View>
+    </View>
+  );
+}
 
 export function AccountMenuModal({
   accountId,
@@ -156,6 +274,7 @@ export function AccountMenuModal({
                 flex: 1,
               }}
             >
+              <AccountDetailsSection account={account} />
               <Notes
                 notes={
                   originalNotes && originalNotes.length > 0
@@ -263,20 +382,28 @@ function AdditionalAccountMenu({
           <Menu
             getItemStyle={getItemStyle}
             items={[
-              {
-                name: 'balance',
-                text:
-                  showBalances === 'true'
-                    ? t('Hide running balance')
-                    : t('Show running balance'),
-              },
-              {
-                name: 'toggle-reconciled',
-                text:
-                  hideReconciled !== 'true'
-                    ? t('Hide reconciled transactions')
-                    : t('Show reconciled transactions'),
-              },
+              ...(onToggleRunningBalance
+                ? [
+                    {
+                      name: 'balance',
+                      text:
+                        showBalances === 'true'
+                          ? t('Hide running balance')
+                          : t('Show running balance'),
+                    } as const,
+                  ]
+                : []),
+              ...(onToggleReconciled
+                ? [
+                    {
+                      name: 'toggle-reconciled',
+                      text:
+                        hideReconciled !== 'true'
+                          ? t('Hide reconciled transactions')
+                          : t('Show reconciled transactions'),
+                    } as const,
+                  ]
+                : []),
               account.closed
                 ? {
                     name: 'reopen',

@@ -806,6 +806,7 @@ class AccountInternal extends PureComponent<
       | 'close'
       | 'reopen'
       | 'export'
+      | 'details'
       | 'toggle-balance'
       | 'remove-sorting'
       | 'toggle-cleared'
@@ -841,6 +842,42 @@ class AccountInternal extends PureComponent<
                 onUnlink: () => {
                   this.props.onUnlinkAccount(accountId);
                 },
+              },
+            },
+          }),
+        );
+        break;
+      case 'details':
+        this.props.dispatch(
+          pushModal({
+            modal: {
+              name: 'account-menu',
+              options: {
+                accountId,
+                onSave: updatedAccount => {
+                  this.props.onUpdateAccount(updatedAccount);
+                },
+                onEditNotes: id => {
+                  this.props.dispatch(
+                    pushModal({
+                      modal: {
+                        name: 'notes',
+                        options: {
+                          id: `account-${id}`,
+                          name: account.name,
+                          onSave: async (id, notes) =>
+                            send('notes-save', { id, note: notes }),
+                        },
+                      },
+                    }),
+                  );
+                },
+                onCloseAccount: id => {
+                  void this.props.dispatch(
+                    openAccountCloseModal({ accountId: id }),
+                  );
+                },
+                onReopenAccount: id => this.props.onReopenAccount(id),
               },
             },
           }),
