@@ -201,7 +201,7 @@ budgetTypes.forEach(budgetType => {
 
     // Page Header Tests
 
-    test('checks that clicking the Actual logo in the page header opens the budget page menu', async () => {
+    test('checks that clicking the Squirrel logo in the page header opens the budget page menu', async () => {
       const budgetPage = await navigation.goToBudgetPage();
 
       await budgetPage.openBudgetPageMenu();
