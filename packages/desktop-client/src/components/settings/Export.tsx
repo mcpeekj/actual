@@ -62,7 +62,7 @@ export function ExportBudget() {
           {warnings.includes('exceeds-import-size-limit') && (
             <Block style={{ color: theme.warningText, marginTop: 15 }}>
               <Trans>
-                This export is larger than Actual can safely re-import. You may
+                This export is larger than Squirrel can safely re-import. You may
                 not be able to restore this backup.
               </Trans>
             </Block>
@@ -82,8 +82,8 @@ export function ExportBudget() {
         <Trans>
           <strong>Export</strong> your data as a zip file containing{' '}
           <code>db.sqlite</code> and <code>metadata.json</code> files. It can be
-          imported into another Actual instance by closing an open file (if
-          any), then clicking the "Import file" button, then choosing "Actual."
+          imported into another Squirrel instance by closing an open file (if
+          any), then clicking the "Import file" button, then choosing "Squirrel."
         </Trans>
       </Text>
       {encryptKeyId ? (

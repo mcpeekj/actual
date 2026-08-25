@@ -63,7 +63,7 @@ const LINK_PAGE_HTML = `<!doctype html>
 <html lang="en">
   <head>
     <meta charset="utf-8" />
-    <title>Actual</title>
+    <title>Squirrel</title>
   </head>
   <body>
     <script>

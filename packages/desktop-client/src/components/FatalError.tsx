@@ -40,7 +40,7 @@ function RenderSimple({ error }: RenderSimpleProps) {
       <Text>
         <Trans>
           Your browser doesn't support IndexedDB in this environment, a feature
-          that Actual requires to run. This might happen if you are in private
+          that Squirrel requires to run. This might happen if you are in private
           browsing mode. Please try a different browser or turn off private
           browsing.
         </Trans>
@@ -54,7 +54,7 @@ function RenderSimple({ error }: RenderSimpleProps) {
     msg = (
       <Text>
         <Trans>
-          Actual requires access to <code>SharedArrayBuffer</code> in order to
+          Squirrel requires access to <code>SharedArrayBuffer</code> in order to
           function properly. If you're seeing this error, either your browser
           does not support <code>SharedArrayBuffer</code>, or your server is not
           sending the appropriate headers, or you are not using HTTPS. See{' '}
@@ -73,7 +73,7 @@ function RenderSimple({ error }: RenderSimpleProps) {
     msg = (
       <Text>
         <Trans>
-          Actual couldn't load a critical backend worker. Reload the page to try
+          Squirrel couldn't load a critical backend worker. Reload the page to try
           again; if the problem persists, do a hard refresh to clear any stale
           cached assets.
         </Trans>
@@ -152,7 +152,7 @@ function SharedArrayBufferOverride() {
     <>
       <Paragraph style={{ marginTop: 10 }}>
         <Trans>
-          Actual uses <code>SharedArrayBuffer</code> to allow usage from
+          Squirrel uses <code>SharedArrayBuffer</code> to allow usage from
           multiple tabs at once and to ensure correct behavior when switching
           files. While it can run without access to
           <code>SharedArrayBuffer</code>, you may encounter data loss or notice
@@ -167,7 +167,7 @@ function SharedArrayBufferOverride() {
           onChange={() => setUnderstand(!understand)}
         />{' '}
         <Trans>
-          I understand the risks, run Actual in the unsupported fallback mode
+          I understand the risks, run Squirrel in the unsupported fallback mode
         </Trans>
       </label>
       <Button
@@ -177,7 +177,7 @@ function SharedArrayBufferOverride() {
           window.location.reload();
         }}
       >
-        <Trans>Open Actual</Trans>
+        <Trans>Open Squirrel</Trans>
       </Button>
     </>
   ) : (

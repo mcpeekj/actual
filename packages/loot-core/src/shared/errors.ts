@@ -70,7 +70,7 @@ function isDatabaseSchemaMismatch(meta?: unknown): boolean {
 }
 
 function getSchemaMismatchError() {
-  return 'This budget could not be loaded because it uses a newer database schema than this version of Actual supports. Make sure you are using the latest version, then try again.';
+  return 'This budget could not be loaded because it uses a newer database schema than this version of Squirrel supports. Make sure you are using the latest version, then try again.';
 }
 
 export function getDownloadError({
@@ -130,7 +130,7 @@ export function getTestKeyError({ reason }: ErrorWithMeta) {
     case 'network':
       return 'Unable to connect to the server. We need to access the server to get some information about your keys.';
     case 'old-key-style':
-      return 'This file is encrypted with an old unsupported key style. Recreate the key on a device where the file is available, or use an older version of Actual to download it.';
+      return 'This file is encrypted with an old unsupported key style. Recreate the key on a device where the file is available, or use an older version of Squirrel to download it.';
     case 'decrypt-failure':
       return 'Unable to decrypt file with this password. Please try again.';
     default:
