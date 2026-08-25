@@ -540,8 +540,14 @@ async function normalizeBankSyncTransactions(transactions, acctId) {
       trans.imported_payee = trans.imported_payee.trim();
     }
 
+    // Prefer the provider's visible transaction id, but fall back to a
+    // stable composite id derived from the provider's internal id. Banks
+    // often assign a new visible id when a pending transaction posts
+    // (e.g. GoCardless), while `internalTransactionId` stays stable. Doing
+    // this for *all* transactions — not just cleared ones — lets a posted
+    // download match the pending version that was stored earlier.
     let imported_id = trans.transactionId;
-    if (trans.cleared && !trans.transactionId && trans.internalTransactionId) {
+    if (!trans.transactionId && trans.internalTransactionId) {
       imported_id = `${trans.account}-${trans.internalTransactionId}`;
     }
 
@@ -881,6 +887,42 @@ export async function matchTransactions(
           WHERE date >= ? AND date <= ? AND amount = ? AND account = ?`,
           [sevenDaysBefore, sevenDaysAfter, trans.amount || 0, acctId],
         );
+      }
+
+      // Banks often assign a new id when a pending transaction posts
+      // (e.g. SimpleFIN), so a booked download won't id-match the pending
+      // row stored earlier. The strictIdChecking query above also excludes
+      // rows that carry their own imported_id, which hides the pending
+      // row entirely. Include stored pending rows in the fuzzy set for
+      // booked transactions so the posted version attaches to its pending
+      // twin and flips it to cleared instead of adding a duplicate.
+      if (trans.cleared) {
+        const pendingRows = await db.all<
+          Pick<
+            db.DbViewTransaction,
+            | 'id'
+            | 'is_parent'
+            | 'date'
+            | 'imported_id'
+            | 'payee'
+            | 'imported_payee'
+            | 'category'
+            | 'notes'
+            | 'reconciled'
+            | 'cleared'
+            | 'amount'
+          >
+        >(
+          `SELECT id, is_parent, date, imported_id, payee, imported_payee, category, notes, reconciled, cleared, amount
+          FROM v_transactions
+          WHERE
+            imported_id IS NOT NULL
+            AND cleared = 0
+            AND date >= ? AND date <= ? AND amount = ?
+            AND account = ?`,
+          [sevenDaysBefore, sevenDaysAfter, trans.amount || 0, acctId],
+        );
+        fuzzyDataset.push(...pendingRows);
       }
 
       // Sort the matched transactions according to the distance from the original

@@ -637,6 +637,95 @@ describe('Account sync', () => {
   );
 });
 
+test('a pending transaction that later posts is matched and cleared, not duplicated', async () => {
+  const { id } = await prepareDatabase();
+
+  // First sync: the transaction arrives as pending. SimpleFIN assigns a
+  // pending-specific id that changes once the transaction posts.
+  await reconcileTransactions(id, [
+    {
+      date: '2024-04-05',
+      amount: -1239,
+      imported_payee: 'Acme Inc.',
+      payee_name: 'Acme Inc.',
+      imported_id: 'pending-tx-id',
+      notes: 'TEST TRANSACTION',
+      cleared: false,
+    },
+  ]);
+
+  let transactions = await getAllTransactions();
+  expect(transactions.length).toBe(1);
+  expect(transactions[0].cleared).toBe(0);
+
+  // Second sync: the same transaction is now posted with a new id
+  await reconcileTransactions(id, [
+    {
+      date: '2024-04-06',
+      amount: -1239,
+      imported_payee: 'Acme Inc.',
+      payee_name: 'Acme Inc.',
+      imported_id: 'booked-tx-id',
+      notes: 'TEST TRANSACTION',
+      cleared: true,
+    },
+  ]);
+
+  transactions = await getAllTransactions();
+  expect(transactions.length).toBe(1);
+  expect(transactions[0].cleared).toBe(1);
+  expect(transactions[0].imported_id).toBe('booked-tx-id');
+});
+
+test('a pending transaction with a stable internalTransactionId is matched when it posts', async () => {
+  const { id } = await prepareDatabase();
+
+  // Pending download: no visible transaction id yet, but the provider
+  // supplies a stable internal id
+  await reconcileTransactions(
+    id,
+    [
+      {
+        account: id,
+        booked: false,
+        date: '2024-04-05',
+        amount: -12.39,
+        payeeName: 'Acme Inc.',
+        transactionId: null,
+        internalTransactionId: 'internal-tx-1',
+      },
+    ],
+    true,
+  );
+
+  let transactions = await getAllTransactions();
+  expect(transactions.length).toBe(1);
+  expect(transactions[0].cleared).toBe(0);
+  expect(transactions[0].imported_id).toBe(`${id}-internal-tx-1`);
+
+  // Booked download: still no visible id, but the internal id matches so
+  // the pending row is found directly and flipped to cleared
+  await reconcileTransactions(
+    id,
+    [
+      {
+        account: id,
+        booked: true,
+        date: '2024-04-06',
+        amount: -12.39,
+        payeeName: 'Acme Inc.',
+        transactionId: null,
+        internalTransactionId: 'internal-tx-1',
+      },
+    ],
+    true,
+  );
+
+  transactions = await getAllTransactions();
+  expect(transactions.length).toBe(1);
+  expect(transactions[0].cleared).toBe(1);
+});
+
 describe('SimpleFin batch sync', () => {
   function mockSimpleFinTransactions(response) {
     vi.mocked(asyncStorage.getItem).mockResolvedValue('test-token');
