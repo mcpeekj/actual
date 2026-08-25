@@ -118,4 +118,35 @@ describe('sidebar Account context menu', () => {
     expect(store.getState().contextMenu.isOpen).toBe(true);
     expect(contextMenuItemNames()).toEqual(['account-rename', 'account-close']);
   });
+
+  it('shows the unread dot when the account has unaddressed transactions', async () => {
+    const account = generateAccount('Bank of America');
+
+    const { container: updatedContainer } = await renderRow(
+      <Account
+        name={account.name}
+        account={account}
+        updated
+        to={`/accounts/${account.id}`}
+        query={bindings.accountBalance(account.id)}
+      />,
+    );
+
+    const updatedDot = updatedContainer.querySelector('.unread-dot');
+    expect(updatedDot).toBeTruthy();
+    expect(getComputedStyle(updatedDot!).opacity).toBe('1');
+
+    const { container: normalContainer } = await renderRow(
+      <Account
+        name={account.name}
+        account={account}
+        to={`/accounts/${account.id}`}
+        query={bindings.accountBalance(account.id)}
+      />,
+    );
+
+    const normalDot = normalContainer.querySelector('.unread-dot');
+    expect(normalDot).toBeTruthy();
+    expect(getComputedStyle(normalDot!).opacity).toBe('0');
+  });
 });

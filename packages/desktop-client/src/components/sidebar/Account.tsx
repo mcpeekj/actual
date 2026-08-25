@@ -173,10 +173,10 @@ export function Account<FieldName extends SheetFields<'account'>>({
               ...style,
               position: 'relative',
               borderLeft: '4px solid transparent',
-              ...(updated && {
-                fontWeight: 700,
-                color: theme.sidebarItemTextUpdated,
-              }),
+              // Unaddressed transactions are signaled by the unread dot
+              // in the left gutter (`.unread-dot`), so the name itself
+              // keeps its normal weight/color. Leave room for the dot.
+              ...(updated && { paddingLeft: 20 }),
             }}
             activeStyle={{
               borderColor: theme.sidebarItemAccentSelected,
@@ -203,6 +203,21 @@ export function Account<FieldName extends SheetFields<'account'>>({
                 alignItems: 'center',
               }}
             >
+              <div
+                className={cx(
+                  'unread-dot',
+                  css({
+                    marginLeft: 2,
+                    marginRight: 4,
+                    width: 6,
+                    height: 6,
+                    borderRadius: 6,
+                    backgroundColor: theme.sidebarItemTextUpdated,
+                    transition: 'opacity .3s',
+                    opacity: updated ? 1 : 0,
+                  }),
+                )}
+              />
               <div
                 className={cx(
                   'dot',

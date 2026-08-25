@@ -180,6 +180,18 @@ function AccountListItem({
           >
             <View
               style={{
+                backgroundColor: isUpdated
+                  ? theme.mobileAccountText
+                  : 'transparent',
+                marginRight: '6px',
+                width: 8,
+                flexShrink: 0,
+                height: 8,
+                borderRadius: 8,
+              }}
+            />
+            <View
+              style={{
                 backgroundColor: isPending
                   ? theme.sidebarItemBackgroundPending
                   : isFailed
@@ -198,7 +210,7 @@ function AccountListItem({
                 ...styles.text,
                 fontSize: 17,
                 fontWeight: 600,
-                color: isUpdated ? theme.mobileAccountText : theme.pillText,
+                color: theme.pillText,
               }}
               data-testid="account-name"
             >
