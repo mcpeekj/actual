@@ -212,7 +212,7 @@ export function Account<FieldName extends SheetFields<'account'>>({
                     width: 6,
                     height: 6,
                     borderRadius: 6,
-                    backgroundColor: theme.sidebarItemTextUpdated,
+                    backgroundColor: theme.warningTextLight,
                     transition: 'opacity .3s',
                     opacity: updated ? 1 : 0,
                   }),

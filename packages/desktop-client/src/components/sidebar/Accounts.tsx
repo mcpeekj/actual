@@ -1,12 +1,15 @@
-import React, { useState } from 'react';
+import React, { Fragment, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 
+import { styles } from '@actual-app/components/styles';
+import { Text } from '@actual-app/components/text';
 import { theme } from '@actual-app/components/theme';
 import { View } from '@actual-app/components/view';
 import type { AccountEntity } from '@actual-app/core/types/models';
 
 import { useMoveAccountMutation } from '#accounts';
 import { isAccountFailedSync } from '#accounts/syncStatus';
+import { groupAccountsByType } from '#components/accounts/accountDetails';
 import { useAccounts } from '#hooks/useAccounts';
 import { useClosedAccounts } from '#hooks/useClosedAccounts';
 import { useLocalPref } from '#hooks/useLocalPref';
@@ -20,6 +23,26 @@ import { Account } from './Account';
 import { SecondaryItem } from './SecondaryItem';
 
 const fontWeight = 600;
+
+// Small, subdued label above each account-type group inside the
+// On budget / Off budget sections.
+function TypeGroupTitle({ label }: { label: string }) {
+  return (
+    <View style={{ paddingTop: 8, paddingBottom: 3 }}>
+      <Text
+        style={{
+          ...styles.smallText,
+          fontWeight: 600,
+          color: theme.sidebarItemText,
+          opacity: 0.6,
+          paddingLeft: 10,
+        }}
+      >
+        {label}
+      </Text>
+    </View>
+  );
+}
 
 export function Accounts() {
   const { t } = useTranslation();
@@ -114,21 +137,26 @@ export function Accounts() {
           />
         )}
 
-        {onBudgetAccounts.map((account, i) => (
-          <Account
-            key={account.id}
-            name={account.name}
-            account={account}
-            connected={!!account.bank}
-            pending={syncingAccountIds.includes(account.id)}
-            failed={isAccountFailedSync(account)}
-            updated={updatedAccounts.includes(account.id)}
-            to={getAccountPath(account)}
-            query={bindings.accountBalance(account.id)}
-            onDragChange={onDragChange}
-            onDrop={onReorder}
-            outerStyle={makeDropPadding(i)}
-          />
+        {groupAccountsByType(onBudgetAccounts, t('No type')).map(group => (
+          <Fragment key={group.label}>
+            <TypeGroupTitle label={group.label} />
+            {group.accounts.map((account, i) => (
+              <Account
+                key={account.id}
+                name={account.name}
+                account={account}
+                connected={!!account.bank}
+                pending={syncingAccountIds.includes(account.id)}
+                failed={isAccountFailedSync(account)}
+                updated={updatedAccounts.includes(account.id)}
+                to={getAccountPath(account)}
+                query={bindings.accountBalance(account.id)}
+                onDragChange={onDragChange}
+                onDrop={onReorder}
+                outerStyle={makeDropPadding(i)}
+              />
+            ))}
+          </Fragment>
         ))}
 
         {offbudgetAccounts.length > 0 && (
@@ -146,21 +174,26 @@ export function Accounts() {
           />
         )}
 
-        {offbudgetAccounts.map((account, i) => (
-          <Account
-            key={account.id}
-            name={account.name}
-            account={account}
-            connected={!!account.bank}
-            pending={syncingAccountIds.includes(account.id)}
-            failed={isAccountFailedSync(account)}
-            updated={updatedAccounts.includes(account.id)}
-            to={getAccountPath(account)}
-            query={bindings.accountBalance(account.id)}
-            onDragChange={onDragChange}
-            onDrop={onReorder}
-            outerStyle={makeDropPadding(i)}
-          />
+        {groupAccountsByType(offbudgetAccounts, t('No type')).map(group => (
+          <Fragment key={group.label}>
+            <TypeGroupTitle label={group.label} />
+            {group.accounts.map((account, i) => (
+              <Account
+                key={account.id}
+                name={account.name}
+                account={account}
+                connected={!!account.bank}
+                pending={syncingAccountIds.includes(account.id)}
+                failed={isAccountFailedSync(account)}
+                updated={updatedAccounts.includes(account.id)}
+                to={getAccountPath(account)}
+                query={bindings.accountBalance(account.id)}
+                onDragChange={onDragChange}
+                onDrop={onReorder}
+                outerStyle={makeDropPadding(i)}
+              />
+            ))}
+          </Fragment>
         ))}
 
         {closedAccounts.length > 0 && (

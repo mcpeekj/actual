@@ -180,9 +180,7 @@ function AccountListItem({
           >
             <View
               style={{
-                backgroundColor: isUpdated
-                  ? theme.mobileAccountText
-                  : 'transparent',
+                backgroundColor: isUpdated ? theme.warningText : 'transparent',
                 marginRight: '6px',
                 width: 8,
                 flexShrink: 0,
