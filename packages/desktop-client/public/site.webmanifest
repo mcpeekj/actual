@@ -1,6 +1,6 @@
 {
-  "name": "Actual",
-  "short_name": "Actual",
+  "name": "Squirrel",
+  "short_name": "Squirrel",
   "description": "A local-first personal finance tool",
   "icons": [
     {
@@ -70,14 +70,14 @@
     {
       "src": "/screenshot_wide.png",
       "form_factor": "wide",
-      "label": "Actual Budget Homepage",
+      "label": "Squirrel Budget Homepage",
       "type": "image/png",
       "sizes": "1280x720"
     },
     {
       "src": "/screenshot_narrow.png",
       "form_factor": "narrow",
-      "label": "Actual Budget Mobile Homepage",
+      "label": "Squirrel Budget Mobile Homepage",
       "type": "image/png",
       "sizes": "350x600"
     }
