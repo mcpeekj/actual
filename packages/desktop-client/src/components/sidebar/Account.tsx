@@ -17,6 +17,7 @@ import { Text } from '@actual-app/components/text';
 import { theme } from '@actual-app/components/theme';
 import { Tooltip } from '@actual-app/components/tooltip';
 import { View } from '@actual-app/components/view';
+import { send } from '@actual-app/core/platform/client/connection';
 import type { AccountEntity } from '@actual-app/core/types/models';
 import { css, cx } from '@emotion/css';
 
@@ -32,7 +33,7 @@ import { useDragRef } from '#hooks/useDragRef';
 import { useIsTestEnv } from '#hooks/useIsTestEnv';
 import { useNotes } from '#hooks/useNotes';
 import { useSyncedPref } from '#hooks/useSyncedPref';
-import { openAccountCloseModal } from '#modals/modalsSlice';
+import { openAccountCloseModal, pushModal } from '#modals/modalsSlice';
 import { useDispatch, useSelector } from '#redux';
 import type { Binding, SheetFields } from '#spreadsheet';
 
@@ -134,6 +135,45 @@ export function Account<FieldName extends SheetFields<'account'>>({
         typeof i === 'object' && 'name' in i && i.name.startsWith('account-'),
     ),
   );
+
+  const openAccountDetails = () => {
+    if (!account) {
+      return;
+    }
+    dispatch(
+      pushModal({
+        modal: {
+          name: 'account-menu',
+          options: {
+            accountId: account.id,
+            onSave: updatedAccount => {
+              updateAccount.mutate({ account: updatedAccount });
+            },
+            onEditNotes: id => {
+              dispatch(
+                pushModal({
+                  modal: {
+                    name: 'notes',
+                    options: {
+                      id: `account-${id}`,
+                      name: account.name,
+                      onSave: async (id, notes) =>
+                        send('notes-save', { id, note: notes }),
+                    },
+                  },
+                }),
+              );
+            },
+            onCloseAccount: id => {
+              void dispatch(openAccountCloseModal({ accountId: id }));
+            },
+            onReopenAccount: id => reopenAccount.mutate({ id }),
+          },
+        },
+      }),
+    );
+  };
+
   useContextMenu({
     triggerRef,
     enabled: account != null && needsTooltip,
@@ -141,7 +181,7 @@ export function Account<FieldName extends SheetFields<'account'>>({
       {
         name: 'account-rename',
         text: t('Rename'),
-        onClick: () => setIsEditing(true),
+        onClick: openAccountDetails,
       },
       account?.closed
         ? {

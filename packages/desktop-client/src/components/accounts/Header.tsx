@@ -313,6 +313,7 @@ export function AccountHeader({
                 isNameEditable={isNameEditable}
                 saveNameError={saveNameError}
                 onSaveName={onSaveName}
+                onEditDetails={() => onMenuSelect('details')}
               />
             </View>
 
@@ -621,6 +622,7 @@ type AccountNameFieldProps = {
   isNameEditable: boolean;
   saveNameError?: ReactNode;
   onSaveName: (newName: string) => void;
+  onEditDetails?: () => void;
 };
 
 function AccountNameField({
@@ -629,6 +631,7 @@ function AccountNameField({
   isNameEditable,
   saveNameError,
   onSaveName,
+  onEditDetails,
 }: AccountNameFieldProps) {
   const { t } = useTranslation();
   const [editingName, setEditingName] = useState(false);
@@ -728,9 +731,9 @@ function AccountNameField({
             {isNameEditable && (
               <Button
                 variant="bare"
-                aria-label={t('Edit account name')}
+                aria-label={t('Edit account')}
                 className="hover-visible"
-                onPress={() => setEditingName(true)}
+                onPress={onEditDetails}
               >
                 <SvgPencil1
                   style={{
