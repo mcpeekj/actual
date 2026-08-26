@@ -215,8 +215,11 @@ export function Account<FieldName extends SheetFields<'account'>>({
               borderLeft: '4px solid transparent',
               // Unaddressed transactions are signaled by the unread dot
               // in the left gutter (`.unread-dot`), so the name itself
-              // keeps its normal weight/color. Leave room for the dot.
-              ...(updated && { paddingLeft: 20 }),
+              // keeps its normal weight/color. Leave room for the dots:
+              // the bank-sync dot sits at ~14-19px in, which collides
+              // with the base 10px paddingLeft — so account rows always
+              // reserve the full gutter, not only when updated.
+              ...(account && { paddingLeft: 20 }),
             }}
             activeStyle={{
               borderColor: theme.sidebarItemAccentSelected,

@@ -149,4 +149,36 @@ describe('sidebar Account context menu', () => {
     expect(normalDot).toBeTruthy();
     expect(getComputedStyle(normalDot!).opacity).toBe('0');
   });
+
+  it('reserves left padding on account rows so the name clears the status dots', async () => {
+    const account = generateAccount('Bank of America');
+
+    const { container: accountContainer } = await renderRow(
+      <Account
+        name={account.name}
+        account={account}
+        to={`/accounts/${account.id}`}
+        query={bindings.accountBalance(account.id)}
+      />,
+    );
+
+    const accountLink = accountContainer.querySelector(
+      'a',
+    ) as HTMLAnchorElement;
+    expect(accountLink).toBeTruthy();
+    expect(accountLink.style.paddingLeft).toBe('20px');
+
+    const { container: titleContainer } = await renderRow(
+      <Account
+        name="On budget"
+        to="/accounts/onbudget"
+        query={bindings.onBudgetAccountBalance()}
+        titleAccount
+      />,
+    );
+
+    const titleLink = titleContainer.querySelector('a') as HTMLAnchorElement;
+    expect(titleLink).toBeTruthy();
+    expect(titleLink.style.paddingLeft).toBe('10px');
+  });
 });
