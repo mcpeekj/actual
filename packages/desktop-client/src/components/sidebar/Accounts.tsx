@@ -28,7 +28,7 @@ const fontWeight = 600;
 // On budget / Off budget sections.
 function TypeGroupTitle({ label }: { label: string }) {
   return (
-    <View style={{ paddingTop: 8, paddingBottom: 3 }}>
+    <View style={{ paddingTop: 8, paddingBottom: 3, flexShrink: 0 }}>
       <Text
         style={{
           ...styles.smallText,
