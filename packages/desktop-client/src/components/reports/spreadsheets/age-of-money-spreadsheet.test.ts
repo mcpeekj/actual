@@ -452,7 +452,7 @@ describe('Age of Money calculations', () => {
     // These tests demonstrate how including off-budget transfers in the
     // calculation changes the result. The queries now include transfers
     // to/from off-budget accounts (e.g. investment, savings accounts
-    // tracked outside the budget) because Actual treats them as
+    // tracked outside the budget) because $quirrel treats them as
     // categorized spending/income.
 
     it('transfer to off-budget counts as spending and consumes income buckets', () => {

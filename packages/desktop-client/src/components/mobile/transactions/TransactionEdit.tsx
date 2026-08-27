@@ -635,7 +635,7 @@ const TransactionEditInner = memo<TransactionEditInnerProps>(
 
     useEffect(() => {
       if (window.history.length === 1) {
-        window.history.replaceState(null, 'Actual Budget', '/');
+        window.history.replaceState(null, '$quirrel', '/');
         window.history.pushState(null, 'Add Transaction', '/transactions/new');
       }
     }, []);
