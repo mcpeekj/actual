@@ -1,4 +1,4 @@
-// Shared account-details definitions (Squirrel fork).
+// Shared account-details definitions ($quirrel fork).
 //
 // `type`/`subtype` are surfaced from DB columns that predate the fork (they
 // were reserved for bank-sync metadata). Here they're user-editable and

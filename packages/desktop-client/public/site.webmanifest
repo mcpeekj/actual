@@ -1,6 +1,6 @@
 {
-  "name": "Squirrel",
-  "short_name": "Squirrel",
+  "name": "$quirrel",
+  "short_name": "$quirrel",
   "description": "A local-first personal finance tool",
   "icons": [
     {
@@ -70,14 +70,14 @@
     {
       "src": "/screenshot_wide.png",
       "form_factor": "wide",
-      "label": "Squirrel Budget Homepage",
+      "label": "$quirrel Budget Homepage",
       "type": "image/png",
       "sizes": "1280x720"
     },
     {
       "src": "/screenshot_narrow.png",
       "form_factor": "narrow",
-      "label": "Squirrel Budget Mobile Homepage",
+      "label": "$quirrel Budget Mobile Homepage",
       "type": "image/png",
       "sizes": "350x600"
     }
