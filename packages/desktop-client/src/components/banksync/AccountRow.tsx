@@ -85,7 +85,7 @@ export const AccountRow = memo(
           >
             <Cell
               name="lastSync"
-              width={200}
+              width={160}
               plain
               style={{
                 color: theme.tableText,
@@ -105,13 +105,13 @@ export const AccountRow = memo(
         )}
 
         {account.account_sync_source ? (
-          <Cell name="edit" plain style={{ paddingRight: '10px' }}>
+          <Cell name="edit" width={100} plain style={{ paddingRight: '10px' }}>
             <Button onPress={() => onAction(account, 'edit')}>
               <Trans>Edit</Trans>
             </Button>
           </Cell>
         ) : (
-          <Cell name="link" plain style={{ paddingRight: '10px' }}>
+          <Cell name="link" width={100} plain style={{ paddingRight: '10px' }}>
             <Button onPress={() => onAction(account, 'link')}>
               <Trans>Link account</Trans>
             </Button>
