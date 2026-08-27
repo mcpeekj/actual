@@ -677,6 +677,143 @@ test('a pending transaction that later posts is matched and cleared, not duplica
   expect(transactions[0].imported_id).toBe('booked-tx-id');
 });
 
+test('a pending transaction with a stable id is cleared when it posts', async () => {
+  const { id } = await prepareDatabase();
+
+  // Day 1: pending download, SimpleFIN keeps the same transaction id
+  await reconcileTransactions(id, [
+    {
+      date: '2024-04-05',
+      amount: -1239,
+      imported_payee: 'Acme Inc.',
+      payee_name: 'Acme Inc.',
+      imported_id: 'stable-tx-id',
+      notes: 'TEST TRANSACTION',
+      cleared: false,
+    },
+  ]);
+
+  let transactions = await getAllTransactions();
+  expect(transactions.length).toBe(1);
+  expect(transactions[0].cleared).toBe(0);
+
+  // Day 2: same id, now booked
+  await reconcileTransactions(id, [
+    {
+      date: '2024-04-06',
+      amount: -1239,
+      imported_payee: 'Acme Inc.',
+      payee_name: 'Acme Inc.',
+      imported_id: 'stable-tx-id',
+      notes: 'TEST TRANSACTION',
+      cleared: true,
+    },
+  ]);
+
+  transactions = await getAllTransactions();
+  expect(transactions.length).toBe(1);
+  expect(transactions[0].cleared).toBe(1);
+});
+
+test('pending and booked versions in the same download are deduplicated (pending first)', async () => {
+  const { id } = await prepareDatabase();
+
+  // SimpleFIN `all` array can contain both the still-pending and the
+  // posted version of the same transaction in one response.
+  await reconcileTransactions(id, [
+    {
+      date: '2024-04-05',
+      amount: -1239,
+      imported_payee: 'Acme Inc.',
+      payee_name: 'Acme Inc.',
+      imported_id: 'same-tx-id',
+      notes: 'TEST TRANSACTION',
+      cleared: false,
+    },
+    {
+      date: '2024-04-06',
+      amount: -1239,
+      imported_payee: 'Acme Inc.',
+      payee_name: 'Acme Inc.',
+      imported_id: 'same-tx-id',
+      notes: 'TEST TRANSACTION',
+      cleared: true,
+    },
+  ]);
+
+  const transactions = await getAllTransactions();
+  expect(transactions.length).toBe(1);
+  expect(transactions[0].cleared).toBe(1);
+});
+
+test('pending and booked versions in the same download are deduplicated (booked first)', async () => {
+  const { id } = await prepareDatabase();
+
+  await reconcileTransactions(id, [
+    {
+      date: '2024-04-06',
+      amount: -1239,
+      imported_payee: 'Acme Inc.',
+      payee_name: 'Acme Inc.',
+      imported_id: 'same-tx-id',
+      notes: 'TEST TRANSACTION',
+      cleared: true,
+    },
+    {
+      date: '2024-04-05',
+      amount: -1239,
+      imported_payee: 'Acme Inc.',
+      payee_name: 'Acme Inc.',
+      imported_id: 'same-tx-id',
+      notes: 'TEST TRANSACTION',
+      cleared: false,
+    },
+  ]);
+
+  const transactions = await getAllTransactions();
+  expect(transactions.length).toBe(1);
+  expect(transactions[0].cleared).toBe(1);
+});
+
+test('a pending version downloaded after the transaction already cleared is not duplicated', async () => {
+  const { id } = await prepareDatabase();
+
+  // First sync: the transaction arrives as booked (cleared)
+  await reconcileTransactions(id, [
+    {
+      date: '2024-04-05',
+      amount: -1239,
+      imported_payee: 'Acme Inc.',
+      payee_name: 'Acme Inc.',
+      imported_id: 'booked-tx-id',
+      notes: 'TEST TRANSACTION',
+      cleared: true,
+    },
+  ]);
+
+  let transactions = await getAllTransactions();
+  expect(transactions.length).toBe(1);
+  expect(transactions[0].cleared).toBe(1);
+
+  // Second sync: the bank re-issues the same transaction as pending with a
+  // new id (SimpleFIN can do this when a pending entry is re-created)
+  await reconcileTransactions(id, [
+    {
+      date: '2024-04-06',
+      amount: -1239,
+      imported_payee: 'Acme Inc.',
+      payee_name: 'Acme Inc.',
+      imported_id: 'pending-tx-id',
+      notes: 'TEST TRANSACTION',
+      cleared: false,
+    },
+  ]);
+
+  transactions = await getAllTransactions();
+  expect(transactions.length).toBe(1);
+  expect(transactions[0].cleared).toBe(1);
+});
+
 test('a pending transaction with a stable internalTransactionId is matched when it posts', async () => {
   const { id } = await prepareDatabase();
 

@@ -734,6 +734,28 @@ export async function reconcileTransactions(
     }
   }
 
+  // Deduplicate transactions that arrived in the same download. The
+  // matching above only sees the DB, so a booked transaction can't match
+  // a pending transaction that was added earlier in this same batch
+  // (SimpleFIN's `all` array can contain both versions of a transaction
+  // while it posts). If two added transactions share an imported_id,
+  // keep the cleared one and drop the pending duplicate. Split parents
+  // are left alone — their children reference them by id.
+  const deduped = new Map();
+  for (const t of added) {
+    if (t.is_parent) {
+      deduped.set(t.id, t);
+      continue;
+    }
+    const key = t.imported_id || t.id;
+    const existing = deduped.get(key);
+    if (!existing || (t.cleared && !existing.cleared)) {
+      deduped.set(key, t);
+    }
+  }
+  added.length = 0;
+  added.push(...deduped.values());
+
   // Maintain the sort order of the server
   const now = Date.now();
   added.forEach((t, index) => {
@@ -923,6 +945,41 @@ export async function matchTransactions(
           [sevenDaysBefore, sevenDaysAfter, trans.amount || 0, acctId],
         );
         fuzzyDataset.push(...pendingRows);
+      }
+
+      // The reverse also happens: a bank can re-issue a pending entry for
+      // a transaction that has already posted (SimpleFIN assigns a fresh
+      // id), so a pending download won't id-match the cleared row stored
+      // earlier. Include stored cleared rows in the fuzzy set for pending
+      // transactions so the re-issued pending attaches to its cleared
+      // twin instead of adding a duplicate.
+      if (!trans.cleared) {
+        const clearedRows = await db.all<
+          Pick<
+            db.DbViewTransaction,
+            | 'id'
+            | 'is_parent'
+            | 'date'
+            | 'imported_id'
+            | 'payee'
+            | 'imported_payee'
+            | 'category'
+            | 'notes'
+            | 'reconciled'
+            | 'cleared'
+            | 'amount'
+          >
+        >(
+          `SELECT id, is_parent, date, imported_id, payee, imported_payee, category, notes, reconciled, cleared, amount
+          FROM v_transactions
+          WHERE
+            imported_id IS NOT NULL
+            AND cleared = 1
+            AND date >= ? AND date <= ? AND amount = ?
+            AND account = ?`,
+          [sevenDaysBefore, sevenDaysAfter, trans.amount || 0, acctId],
+        );
+        fuzzyDataset.push(...clearedRows);
       }
 
       // Sort the matched transactions according to the distance from the original
