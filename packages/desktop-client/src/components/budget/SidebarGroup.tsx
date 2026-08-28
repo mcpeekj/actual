@@ -1,5 +1,5 @@
 // @ts-strict-ignore
-import React, { useRef } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import type { CSSProperties, RefCallback } from 'react';
 import { useTranslation } from 'react-i18next';
 
@@ -11,6 +11,7 @@ import { Text } from '@actual-app/components/text';
 import { theme } from '@actual-app/components/theme';
 import { Tooltip } from '@actual-app/components/tooltip';
 import { View } from '@actual-app/components/view';
+import * as monthUtils from '@actual-app/core/shared/months';
 import type {
   CategoryEntity,
   CategoryGroupEntity,
@@ -22,6 +23,11 @@ import { InputCell } from '#components/table';
 import { useContextMenu } from '#hooks/useContextMenu';
 import { useFeatureFlag } from '#hooks/useFeatureFlag';
 import { useGlobalPref } from '#hooks/useGlobalPref';
+import { useSpreadsheet } from '#hooks/useSpreadsheet';
+import { envelopeBudget } from '#spreadsheet/bindings';
+
+import { useEnvelopeBudget } from './envelope/EnvelopeBudgetContext';
+import { useTrackingBudget } from './tracking/TrackingBudgetContext';
 
 type SidebarGroupProps = {
   group: CategoryGroupEntity;
@@ -66,6 +72,54 @@ export function SidebarGroup({
   const [categoryExpandedStatePref] = useGlobalPref('categoryExpandedState');
   const categoryExpandedState = categoryExpandedStatePref ?? 0;
 
+  // Group-level "Roll over" toggle (budget table only). Both budget type
+  // providers expose the current month and the budget action dispatcher; the
+  // active one supplies the real values.
+  const envelopeCtx = useEnvelopeBudget();
+  const trackingCtx = useTrackingBudget();
+  const inBudgetTable =
+    envelopeCtx.currentMonth !== 'unknown' ||
+    trackingCtx.currentMonth !== 'unknown';
+  const { currentMonth, onBudgetAction } =
+    envelopeCtx.currentMonth !== 'unknown' ? envelopeCtx : trackingCtx;
+
+  const spreadsheet = useSpreadsheet();
+  const [rolloverByCategory, setRolloverByCategory] = useState<
+    Record<string, boolean>
+  >({});
+
+  useEffect(() => {
+    if (!inBudgetTable || !group.categories) {
+      return;
+    }
+    const sheetName = monthUtils.sheetForMonth(currentMonth);
+    const unbinds = group.categories
+      .filter(cat => !cat.hidden && !cat.is_income)
+      .map(category => {
+        return spreadsheet.bind(
+          sheetName,
+          envelopeBudget.catRollover(category.id),
+          result => {
+            setRolloverByCategory(prev => ({
+              ...prev,
+              [category.id]: Boolean(result.value),
+            }));
+          },
+        );
+      });
+
+    return () => unbinds.forEach(unbind => unbind());
+  }, [spreadsheet, inBudgetTable, currentMonth, group.categories]);
+
+  const groupCategories = group.categories?.filter(
+    cat => !cat.hidden && !cat.is_income,
+  );
+  const canToggleRollover =
+    inBudgetTable && !group.is_income && (groupCategories?.length ?? 0) > 0;
+  const groupRolloverEnabled =
+    groupCategories?.length !== 0 &&
+    groupCategories?.every(cat => rolloverByCategory[cat.id]);
+
   const temporary = group.id === 'new';
   const canSortCategories =
     !!onSortCategories && (group.categories?.length ?? 0) > 1;
@@ -88,6 +142,19 @@ export function SidebarGroup({
         name: 'delete',
         text: t('Delete'),
         onClick: () => onDelete(group.id),
+      },
+      canToggleRollover && Menu.line,
+      canToggleRollover && {
+        name: 'rollover',
+        text: groupRolloverEnabled
+          ? t('Reset group at month end')
+          : t('Roll over group to next month'),
+        onClick: () => {
+          onBudgetAction(currentMonth, 'group-rollover', {
+            group: group.id,
+            flag: !groupRolloverEnabled,
+          });
+        },
       },
       canSortCategories && Menu.line,
       canSortCategories && {

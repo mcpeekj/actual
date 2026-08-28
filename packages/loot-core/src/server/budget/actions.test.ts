@@ -14,6 +14,7 @@ import {
   setBudget,
   setCategoryCarryover,
   setCategoryRollover,
+  setGroupRollover,
   setNMonthAvg,
 } from './actions';
 import * as budget from './base';
@@ -492,5 +493,29 @@ describe('setCategoryRollover', () => {
     expect(
       await getSheetValue(monthUtils.sheetForMonth('2024-02'), 'to-budget'),
     ).toBe(5000);
+  });
+
+  it('applies rollover to every category in a group', async () => {
+    // setGroupRollover starts from the current month, so pin it to the
+    // months this test creates.
+    global.currentMonth = '2024-01';
+    await setupDatabase();
+
+    await db.insertCategory({
+      id: 'cat2',
+      name: 'cat2',
+      cat_group: 'group1',
+      is_income: 0,
+    });
+    await sheet.waitOnSpreadsheet();
+
+    await setGroupRollover({ groupId: 'group1', flag: true });
+    await sheet.waitOnSpreadsheet();
+
+    // Every expense category in the group gets rollover, for the current
+    // month and beyond.
+    const sheetName = monthUtils.sheetForMonth('2024-02');
+    expect(sheet.get().getCellValue(sheetName, 'rollover-cat1')).toBe(true);
+    expect(sheet.get().getCellValue(sheetName, 'rollover-cat2')).toBe(true);
   });
 });

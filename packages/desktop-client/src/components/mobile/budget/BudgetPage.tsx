@@ -401,6 +401,16 @@ export function BudgetPage() {
               onSortCategories: (groupId, direction) => {
                 sortCategories.mutate({ groupId, direction });
               },
+              onGroupRollover: flag => {
+                applyBudgetAction.mutate({
+                  month: startMonth,
+                  type: 'group-rollover',
+                  args: {
+                    group: group.id,
+                    flag,
+                  },
+                });
+              },
             },
           },
         }),

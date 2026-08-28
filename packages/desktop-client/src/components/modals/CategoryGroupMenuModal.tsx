@@ -1,5 +1,5 @@
 // @ts-strict-ignore
-import React, { useRef, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import type { ComponentProps } from 'react';
 import { Trans, useTranslation } from 'react-i18next';
 
@@ -22,6 +22,8 @@ import { styles } from '@actual-app/components/styles';
 import type { CSSProperties } from '@actual-app/components/styles';
 import { theme } from '@actual-app/components/theme';
 import { View } from '@actual-app/components/view';
+import * as monthUtils from '@actual-app/core/shared/months';
+import type { CategoryGroupEntity } from '@actual-app/core/types/models';
 import { css } from '@emotion/css';
 
 import {
@@ -35,7 +37,9 @@ import { Notes } from '#components/Notes';
 import { useCategories } from '#hooks/useCategories';
 import { useFeatureFlag } from '#hooks/useFeatureFlag';
 import { useNotes } from '#hooks/useNotes';
+import { useSpreadsheet } from '#hooks/useSpreadsheet';
 import { useUndo } from '#hooks/useUndo';
+import { envelopeBudget } from '#spreadsheet/bindings';
 import type { Modal as ModalType } from '#modals/modalsSlice';
 
 type CategoryGroupMenuModalProps = Extract<
@@ -53,6 +57,7 @@ export function CategoryGroupMenuModal({
   onClose,
   onApplyBudgetTemplatesInGroup,
   onSortCategories,
+  onGroupRollover,
 }: CategoryGroupMenuModalProps) {
   const [showMore, setShowMore] = useState(false);
   const { data: { grouped: categoryGroups } = { grouped: [] } } =
@@ -62,6 +67,41 @@ export function CategoryGroupMenuModal({
   const { showUndoNotification } = useUndo();
   const isGoalTemplatesEnabled = useFeatureFlag('goalTemplatesEnabled');
   const { t } = useTranslation();
+
+  const spreadsheet = useSpreadsheet();
+  const [rolloverByCategory, setRolloverByCategory] = useState<
+    Record<string, boolean>
+  >({});
+
+  useEffect(() => {
+    if (!group?.categories) {
+      return;
+    }
+    const sheetName = monthUtils.sheetForMonth(monthUtils.currentMonth());
+    const unbinds = group.categories
+      .filter(cat => !cat.hidden && !cat.is_income)
+      .map(category => {
+        return spreadsheet.bind(
+          sheetName,
+          envelopeBudget.catRollover(category.id),
+          result => {
+            setRolloverByCategory(prev => ({
+              ...prev,
+              [category.id]: Boolean(result.value),
+            }));
+          },
+        );
+      });
+
+    return () => unbinds.forEach(unbind => unbind());
+  }, [spreadsheet, group]);
+
+  const groupCategories = group.categories?.filter(
+    cat => !cat.hidden && !cat.is_income,
+  );
+  const groupRolloverEnabled =
+    (groupCategories?.length ?? 0) > 0 &&
+    groupCategories?.every(cat => rolloverByCategory[cat.id]);
 
   const onRename = newName => {
     if (newName && newName !== group.name) {
@@ -149,6 +189,8 @@ export function CategoryGroupMenuModal({
                 onToggleVisibility={_onToggleVisibility}
                 onSortAsc={hasMultipleCategories ? _onSortAsc : undefined}
                 onSortDesc={hasMultipleCategories ? _onSortDesc : undefined}
+                onGroupRollover={onGroupRollover}
+                groupRolloverEnabled={groupRolloverEnabled}
                 onClose={() => state.close()}
               />
             }
@@ -266,7 +308,18 @@ function AdditionalCategoryGroupMenu({
   onToggleVisibility,
   onSortAsc,
   onSortDesc,
+  onGroupRollover,
+  groupRolloverEnabled,
   onClose,
+}: {
+  group: CategoryGroupEntity;
+  onDelete: () => void;
+  onToggleVisibility: () => void;
+  onSortAsc?: () => void;
+  onSortDesc?: () => void;
+  onGroupRollover?: (flag: boolean) => void;
+  groupRolloverEnabled?: boolean;
+  onClose: () => void;
 }) {
   const { t } = useTranslation();
   const triggerRef = useRef(null);
@@ -317,6 +370,17 @@ function AdditionalCategoryGroupMenu({
                     icon: group.hidden ? SvgViewShow : SvgViewHide,
                     iconSize: 16,
                   },
+                  ...(onGroupRollover
+                    ? [
+                        Menu.line,
+                        {
+                          name: 'group-rollover',
+                          text: groupRolloverEnabled
+                            ? t('Reset group at month end')
+                            : t('Roll over group to next month'),
+                        },
+                      ]
+                    : []),
                   ...(!group.is_income && [
                     Menu.line,
                     {
@@ -341,6 +405,9 @@ function AdditionalCategoryGroupMenu({
                   onDelete();
                 } else if (itemName === 'toggleVisibility') {
                   onToggleVisibility();
+                } else if (itemName === 'group-rollover') {
+                  onGroupRollover?.(!groupRolloverEnabled);
+                  onClose?.();
                 } else if (itemName === 'sort-asc') {
                   onSortAsc?.();
                   onClose?.();

@@ -431,6 +431,7 @@ export type Modal =
           groupId: CategoryGroupEntity['id'],
           direction: 'asc' | 'desc',
         ) => void;
+        onGroupRollover?: (flag: boolean) => void;
       };
     }
   | {

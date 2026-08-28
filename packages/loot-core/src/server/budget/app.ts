@@ -49,6 +49,7 @@ export type BudgetHandlers = {
   'budget/copy-until-year-end': typeof actions.copyUntilYearEnd;
   'budget/set-carryover': typeof actions.setCategoryCarryover;
   'budget/set-category-rollover': typeof actions.setCategoryRollover;
+  'budget/set-group-rollover': typeof actions.setGroupRollover;
   'budget/reset-income-carryover': typeof actions.resetIncomeCarryover;
   'get-categories': typeof getCategories;
   'get-budget-bounds': typeof getBudgetBounds;
@@ -148,6 +149,10 @@ app.method(
 app.method(
   'budget/set-category-rollover',
   mutator(undoable(actions.setCategoryRollover)),
+);
+app.method(
+  'budget/set-group-rollover',
+  mutator(undoable(actions.setGroupRollover)),
 );
 app.method(
   'budget/reset-income-carryover',

@@ -741,6 +741,14 @@ type ApplyBudgetActionPayload =
       };
     }
   | {
+      type: 'group-rollover';
+      month: string;
+      args: {
+        group: CategoryGroupEntity['id'];
+        flag: boolean;
+      };
+    }
+  | {
       type: 'reset-income-carryover';
       month: string;
       args?: never;
@@ -891,6 +899,13 @@ export function useBudgetActions() {
           await send('budget/set-category-rollover', {
             startMonth: month,
             category: args.category,
+            flag: args.flag,
+          });
+          return null;
+        }
+        case 'group-rollover': {
+          await send('budget/set-group-rollover', {
+            groupId: args.group,
             flag: args.flag,
           });
           return null;

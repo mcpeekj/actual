@@ -762,6 +762,30 @@ export async function setCategoryRollover({
   });
 }
 
+export async function setGroupRollover({
+  groupId,
+  flag,
+}: {
+  groupId: string;
+  flag: boolean;
+}): Promise<void> {
+  const categories = await db.all<Pick<db.DbCategory, 'id'>>(
+    `SELECT id FROM categories
+       WHERE cat_group = ? AND is_income = 0 AND tombstone = 0`,
+    [groupId],
+  );
+  const table = getBudgetTable();
+  const months = getAllMonths(monthUtils.currentMonth());
+
+  await batchMessages(async () => {
+    for (const category of categories) {
+      for (const month of months) {
+        void setRollover(table, category.id, dbMonth(month).toString(), flag);
+      }
+    }
+  });
+}
+
 function addNewLine(notes?: string) {
   return !notes ? '' : `${notes}\n`;
 }
