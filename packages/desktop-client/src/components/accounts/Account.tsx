@@ -477,6 +477,14 @@ class AccountInternal extends PureComponent<
       query = query.filter({ reconciled: { $eq: false } });
     }
 
+    // Hide $0 pending transactions (card authorization holds). They
+    // clutter the register and never post as real charges. Keep them in
+    // the DB so the pending→posted matching still works when a real
+    // charge arrives.
+    query = query.filter({
+      $or: [{ amount: { $ne: 0 } }, { cleared: { $eq: true } }],
+    });
+
     this.paged = pagedQuery(query.select('*'), {
       onData: async (groupedData, prevData) => {
         const data = ungroupTransactions([...groupedData]);

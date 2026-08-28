@@ -80,7 +80,14 @@ export class Navigation {
   }
 
   async goToReportsPage() {
-    await this.page.getByRole('link', { name: 'Reports' }).click();
+    const reportsLink = this.page.getByRole('link', { name: 'Reports' });
+
+    // Expand the "more" menu only if it is not already expanded
+    if (!(await reportsLink.isVisible())) {
+      await this.page.getByRole('button', { name: 'More' }).click();
+    }
+
+    await reportsLink.click();
 
     return new ReportsPage(this.page);
   }

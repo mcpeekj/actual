@@ -33,6 +33,7 @@ export function PrimaryButtons() {
   const isUsingServer = syncServerStatus !== 'no-server' || isTestEnv;
 
   const isActive = [
+    '/reports',
     '/payees',
     '/rules',
     '/bank-sync',
@@ -49,7 +50,6 @@ export function PrimaryButtons() {
   return (
     <View style={{ flexShrink: 0 }}>
       <Item title={t('Budget')} Icon={SvgWallet} to="/budget" />
-      <Item title={t('Reports')} Icon={SvgReports} to="/reports" />
       <Item title={t('Schedules')} Icon={SvgCalendar3} to="/schedules" />
       <Item
         title={t('More')}
@@ -60,6 +60,12 @@ export function PrimaryButtons() {
       />
       {isOpen && (
         <>
+          <SecondaryItem
+            title={t('Reports')}
+            Icon={SvgReports}
+            to="/reports"
+            indent={15}
+          />
           <SecondaryItem
             title={t('Payees')}
             Icon={SvgStoreFront}
