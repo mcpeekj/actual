@@ -31,6 +31,7 @@ type EnvelopeBalanceMenuModalProps = Omit<
 export function EnvelopeBalanceMenuModal({
   categoryId,
   onCarryover,
+  onRollover,
   onTransfer,
   onCover,
 }: EnvelopeBalanceMenuModalProps) {
@@ -105,6 +106,7 @@ export function EnvelopeBalanceMenuModal({
             categoryId={categoryId}
             getItemStyle={() => defaultMenuItemStyle}
             onCarryover={onCarryover}
+            onRollover={onRollover}
             onTransfer={onTransfer}
             onCover={onCover}
           />

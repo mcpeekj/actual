@@ -50,6 +50,13 @@ export function BalanceMovementMenu({
             });
             onClose();
           }}
+          onRollover={rollover => {
+            onBudgetAction(month, 'rollover', {
+              category: categoryId,
+              flag: rollover,
+            });
+            onClose();
+          }}
           onTransfer={() => setMenu('transfer')}
           onCover={() => setMenu('cover')}
         />

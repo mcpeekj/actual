@@ -915,6 +915,12 @@ function PayeeIcons({
   );
 }
 
+// A transaction dated after today is future-dated: it's scheduled, not yet
+// real money. ISO date strings compare lexicographically.
+function isFutureTransactionDate(date?: string | null): boolean {
+  return date != null && date > monthUtils.currentDay();
+}
+
 type TransactionProps = {
   allTransactions?: TransactionEntity[];
   transaction: TransactionEntity;
@@ -926,6 +932,15 @@ type TransactionProps = {
   showAccount?: boolean;
   showBalance?: boolean;
   showCleared?: boolean;
+  // When true, this row is part of the set of transactions that will be
+  // locked by the reconcile flow (cleared and not yet reconciled). Used to
+  // preview what reconcile will lock before the lock is committed.
+  isReconciling?: boolean;
+  // Future-dated transactions render italicized, and a hard separator line
+  // is drawn above the row that crosses from the future block into the
+  // current one.
+  isFuture?: boolean;
+  showFutureSeparator?: boolean;
   showZeroInDeposit?: boolean;
   style?: CSSProperties;
   selected?: boolean;
@@ -993,6 +1008,9 @@ const Transaction = memo(function Transaction({
   showAccount,
   showBalance,
   showCleared,
+  isReconciling,
+  isFuture,
+  showFutureSeparator,
   showZeroInDeposit,
   style,
   selected,
@@ -1448,6 +1466,9 @@ const Transaction = memo(function Transaction({
       <Row
         ref={rowRef}
         {...dragProps}
+        data-reconcile-preview={isReconciling ? 'true' : undefined}
+        data-future={isFuture ? 'true' : undefined}
+        data-future-separator={showFutureSeparator ? 'true' : undefined}
         style={{
           backgroundColor: selected
             ? theme.tableRowBackgroundHighlight
@@ -1478,6 +1499,21 @@ const Transaction = memo(function Transaction({
           ...(isPreview && {
             color: theme.tableTextInactive,
             fontStyle: 'italic',
+          }),
+          // During reconciliation, highlight the transactions that will be
+          // locked so the user can see what reconcile will commit before
+          // pressing "Lock transactions".
+          ...(isReconciling && {
+            backgroundColor: theme.tableRowBackgroundHighlight,
+          }),
+          // Future-dated transactions are italicized, and a hard line
+          // separates the future block from the current one.
+          ...(isFuture && {
+            color: theme.tableTextInactive,
+            fontStyle: 'italic',
+          }),
+          ...(showFutureSeparator && {
+            borderTop: `2px solid ${theme.tableBorderSeparator}`,
           }),
           ...(_unmatched && { opacity: 0.5 }),
           ...(isBeingDragged && { opacity: 0.5 }),
@@ -2395,6 +2431,7 @@ type TransactionTableInnerProps = {
   showBalances: boolean;
   showReconciled: boolean;
   showCleared: boolean;
+  isReconciling?: boolean;
   showAccount: boolean;
   showCategory: boolean;
   currentAccountId: AccountEntity['id'];
@@ -2541,12 +2578,35 @@ function TransactionTableInner({
       isExpanded,
       showSelection,
       allowSplitTransaction,
+      isReconciling,
     } = props;
 
     const trans = item;
     const selected = selectedItems.has(trans.id);
 
     const parent = trans.parent_id && props.transactionMap.get(trans.parent_id);
+
+    // While reconciling, the transactions that will be locked are the
+    // cleared, unreconciled ones (split children inherit the parent's lock).
+    const willBeLocked = !!(
+      isReconciling &&
+      ((trans.cleared && !trans.reconciled) ||
+        (trans.is_child && parent && parent.cleared && !parent.reconciled))
+    );
+
+    // Future-dated transactions are separated from current ones by a hard
+    // line and rendered italicized. Only meaningful in the natural
+    // date-sorted register.
+    const isDateSorted = !props.sortField || props.sortField === 'date';
+    const isFuture = isFutureTransactionDate(trans.date);
+    const prevRow = index > 0 ? transactionsToRender[index - 1] : null;
+    const prevIsFuture = prevRow
+      ? isFutureTransactionDate(prevRow.date)
+      : false;
+    // Draw the hard line on the row that crosses from the future block into
+    // the current one (or vice versa when sorted ascending).
+    const showFutureSeparator =
+      isDateSorted && prevRow != null && isFuture !== prevIsFuture;
     const isChildDeposit = parent ? parent.amount > 0 : undefined;
     const expanded = isExpanded && isExpanded((parent || trans).id);
 
@@ -2607,6 +2667,9 @@ function TransactionTableInner({
         showAccount={showAccount}
         showBalance={showBalances}
         showCleared={showCleared}
+        isReconciling={willBeLocked}
+        isFuture={isFuture}
+        showFutureSeparator={showFutureSeparator}
         selected={selected}
         highlighted={false}
         added={isNew?.(trans.id)}
@@ -2789,6 +2852,7 @@ export type TransactionTableProps = {
   showBalances: boolean;
   showReconciled: boolean;
   showCleared: boolean;
+  isReconciling?: boolean;
   showAccount: boolean;
   showCategory: boolean;
   currentAccountId: AccountEntity['id'];

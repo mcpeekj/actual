@@ -498,6 +498,12 @@ export const CategoryMonth = memo(function CategoryMonth({
                   flag: carryover,
                 });
               }}
+              onRollover={rollover => {
+                onMenuAction(month, 'rollover', {
+                  category: category.id,
+                  flag: rollover,
+                });
+              }}
             />
           </Popover>
         </Field>

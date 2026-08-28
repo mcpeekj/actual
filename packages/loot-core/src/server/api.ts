@@ -491,6 +491,19 @@ handlers['api/budget-set-carryover'] = withMutation(async function ({
   });
 });
 
+handlers['api/budget-set-category-rollover'] = withMutation(async function ({
+  categoryId,
+  flag,
+}) {
+  checkFileOpen();
+  await validateExpenseCategory('budget-set-category-rollover', categoryId);
+  return handlers['budget/set-category-rollover']({
+    startMonth: monthUtils.currentMonth(),
+    category: categoryId,
+    flag,
+  });
+});
+
 handlers['api/budget-hold-for-next-month'] = withMutation(async function ({
   month,
   amount,

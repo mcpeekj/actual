@@ -266,6 +266,7 @@ type TransactionListProps = Pick<
   | 'showAccount'
   | 'showBalances'
   | 'showCleared'
+  | 'isReconciling'
   | 'showReconciled'
   | 'showSelection'
   | 'sortField'
@@ -301,6 +302,7 @@ export function TransactionList({
   showBalances,
   showReconciled,
   showCleared,
+  isReconciling,
   showAccount,
   isAdding,
   isNew,
@@ -739,6 +741,7 @@ export function TransactionList({
         showBalances={showBalances}
         showReconciled={showReconciled}
         showCleared={showCleared}
+        isReconciling={isReconciling}
         showAccount={showAccount}
         showCategory
         currentAccountId={account && account.id}

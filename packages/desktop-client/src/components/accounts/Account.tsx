@@ -16,6 +16,7 @@ import { View } from '@actual-app/components/view';
 import { listen, send } from '@actual-app/core/platform/client/connection';
 import * as undo from '@actual-app/core/platform/client/undo';
 import type { UndoState } from '@actual-app/core/server/undo';
+import { currentDay } from '@actual-app/core/shared/months';
 import { q } from '@actual-app/core/shared/query';
 import type { Query } from '@actual-app/core/shared/query';
 import {
@@ -709,6 +710,9 @@ class AccountInternal extends PureComponent<
       await aqlQuery(
         this.paged.query
           .options({ splits: 'none' })
+          // Future-dated transactions don't count toward the running
+          // balance, so rows past today render without one.
+          .filter({ date: { $lte: currentDay() } })
           .select([{ balance: { $sumOver: '$amount' } }]),
       );
 
@@ -994,7 +998,11 @@ class AccountInternal extends PureComponent<
   getBalanceQuery(id?: string) {
     return {
       name: `balance-query-${id}`,
-      query: this.makeRootTransactionsQuery().calculate({ $sum: '$amount' }),
+      // Future-dated transactions are scheduled, not yet real money, so they
+      // don't count toward the account balance.
+      query: this.makeRootTransactionsQuery()
+        .filter({ date: { $lte: currentDay() } })
+        .calculate({ $sum: '$amount' }),
     } as const;
   }
 
@@ -1886,6 +1894,7 @@ class AccountInternal extends PureComponent<
                   showBalances={!!allBalances}
                   showReconciled={showReconciled}
                   showCleared={!!showCleared}
+                  isReconciling={reconcileAmount != null}
                   showAccount={
                     !accountId ||
                     accountId === 'offbudget' ||

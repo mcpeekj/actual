@@ -31,6 +31,7 @@ type TrackingBalanceMenuModalProps = Omit<
 export function TrackingBalanceMenuModal({
   categoryId,
   onCarryover,
+  onRollover,
 }: TrackingBalanceMenuModalProps) {
   const defaultMenuItemStyle: CSSProperties = {
     ...styles.mobileMenuItem,
@@ -102,6 +103,7 @@ export function TrackingBalanceMenuModal({
             categoryId={categoryId}
             getItemStyle={() => defaultMenuItemStyle}
             onCarryover={onCarryover}
+            onRollover={onRollover}
           />
         </>
       )}

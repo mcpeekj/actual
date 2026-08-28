@@ -227,6 +227,10 @@ export async function loadUserBudgets(db: typeof DbModule): Promise<void> {
         `${sheetName}!carryover-${budget.category}`,
         budget.carryover === 1 ? true : false,
       );
+      sheet.set(
+        `${sheetName}!rollover-${budget.category}`,
+        budget.rollover === 1 ? true : false,
+      );
       sheet.set(`${sheetName}!goal-${budget.category}`, budget.goal);
       sheet.set(`${sheetName}!long-goal-${budget.category}`, budget.long_goal);
     }

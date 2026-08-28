@@ -476,6 +476,7 @@ export type Modal =
         categoryId: CategoryEntity['id'];
         month: string;
         onCarryover?: (carryover: boolean) => void;
+        onRollover?: (rollover: boolean) => void;
         onTransfer?: () => void;
         onCover?: () => void;
       };
@@ -506,6 +507,7 @@ export type Modal =
         categoryId: CategoryEntity['id'];
         month: string;
         onCarryover: (carryover: boolean) => void;
+        onRollover?: (rollover: boolean) => void;
       };
     }
   | {

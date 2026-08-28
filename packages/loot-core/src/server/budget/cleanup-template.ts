@@ -78,20 +78,27 @@ async function applyGroupCleanups(
         );
         const to_budget = budgeted + Math.abs(balance);
         const categoryId = overspendGroup[ii].category;
-        let carryover = await db.first<Pick<db.DbZeroBudget, 'carryover'>>(
-          `SELECT carryover FROM zero_budgets WHERE month = ? and category = ?`,
+        let carryover = await db.first<
+          Pick<db.DbZeroBudget, 'carryover' | 'rollover'>
+        >(
+          `SELECT carryover, rollover FROM zero_budgets WHERE month = ? and category = ?`,
           [db_month, categoryId],
         );
 
         if (carryover === null) {
-          carryover = { carryover: 0 };
+          carryover = { carryover: 0, rollover: 0 };
         }
+
+        // Only cover overspend for categories that surface it: rollover on
+        // (accumulates) and not carrying it over. Categories that reset each
+        // month forgive overspend entirely.
+        const surfacesOverspend = carryover.rollover === 1 && carryover.carryover === 0;
 
         if (
           // We have enough to fully cover the overspent.
           balance < 0 &&
           Math.abs(balance) <= available_amount &&
-          carryover.carryover === 0
+          surfacesOverspend
         ) {
           await setBudget({
             category: categoryId,
@@ -102,7 +109,7 @@ async function applyGroupCleanups(
         } else if (
           // We can only cover this category partially.
           balance < 0 &&
-          carryover.carryover === 0 &&
+          surfacesOverspend &&
           Math.abs(balance) > available_amount
         ) {
           await setBudget({

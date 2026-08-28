@@ -50,6 +50,7 @@ export type Spreadsheets = {
     'sum-amount': number;
     leftover: number;
     carryover: number;
+    rollover: number;
     goal: number;
     'long-goal': number;
   };
@@ -73,6 +74,7 @@ export type Spreadsheets = {
     'sum-amount': number;
     leftover: number;
     carryover: number;
+    rollover: number;
     goal: number;
     'long-goal': number;
   };

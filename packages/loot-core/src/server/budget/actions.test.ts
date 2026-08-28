@@ -3,6 +3,8 @@ import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
 import * as db from '#server/db';
 import * as sheet from '#server/sheet';
+// @ts-strict-ignore
+import * as monthUtils from '#shared/months';
 
 import {
   copyUntilYearEnd,
@@ -11,6 +13,7 @@ import {
   set3MonthAvg,
   setBudget,
   setCategoryCarryover,
+  setCategoryRollover,
   setNMonthAvg,
 } from './actions';
 import * as budget from './base';
@@ -273,6 +276,24 @@ async function prepareDatabase() {
   await sheet.loadSpreadsheet(db);
   await budget.createBudget(['2024-01', '2024-02']);
 
+  // These categories accumulate month to month (the old default), so the
+  // carryover flag below still means something.
+  await setCategoryRollover({
+    startMonth: '2024-01',
+    category: 'cat1',
+    flag: true,
+  });
+  await setCategoryRollover({
+    startMonth: '2024-01',
+    category: 'cat2',
+    flag: true,
+  });
+  await setCategoryRollover({
+    startMonth: '2024-01',
+    category: 'cat3',
+    flag: true,
+  });
+
   await setCategoryCarryover({
     startMonth: '2024-01',
     category: 'cat2',
@@ -340,3 +361,136 @@ async function setupAverageDatabase() {
 
   await sheet.waitOnSpreadsheet();
 }
+
+describe('setCategoryRollover', () => {
+  beforeEach(global.emptyDatabase());
+  afterEach(global.emptyDatabase());
+
+  async function setupDatabase() {
+    await db.insertAccount({ id: 'account1', name: 'Account 1' });
+
+    await db.insertCategoryGroup({
+      id: 'income-group',
+      name: 'Income',
+      is_income: 1,
+    });
+    await db.insertCategory({
+      id: 'income-cat',
+      name: 'Income',
+      cat_group: 'income-group',
+      is_income: 1,
+    });
+    await db.insertCategoryGroup({
+      id: 'group1',
+      name: 'group1',
+      is_income: 0,
+    });
+    await db.insertCategory({
+      id: 'cat1',
+      name: 'cat1',
+      cat_group: 'group1',
+      is_income: 0,
+    });
+
+    await sheet.loadSpreadsheet(db);
+    await budget.createBudget(['2024-01', '2024-02']);
+  }
+
+  it('returns positive leftover to To Budget when rollover is off (default)', async () => {
+    await setupDatabase();
+
+    // $100 income, budget $100, spend $40 → $60 leftover in Jan.
+    await db.insertTransaction({
+      date: '2024-01-15',
+      amount: 10000,
+      account: 'account1',
+      category: 'income-cat',
+    });
+    await setBudget({ category: 'cat1', month: '2024-01', amount: 10000 });
+    await db.insertTransaction({
+      date: '2024-01-15',
+      amount: -4000,
+      account: 'account1',
+      category: 'cat1',
+    });
+    await sheet.waitOnSpreadsheet();
+
+    expect(
+      await getSheetValue(monthUtils.sheetForMonth('2024-01'), 'leftover-cat1'),
+    ).toBe(6000);
+
+    // With rollover off (the default), the $60 leftover returns to Feb's
+    // To Budget and the category starts fresh.
+    expect(
+      await getSheetValue(monthUtils.sheetForMonth('2024-02'), 'to-budget'),
+    ).toBe(6000);
+    expect(
+      await getSheetValue(monthUtils.sheetForMonth('2024-02'), 'leftover-cat1'),
+    ).toBe(0);
+  });
+
+  it('keeps leftover in the category when rollover is on', async () => {
+    await setupDatabase();
+
+    await db.insertTransaction({
+      date: '2024-01-15',
+      amount: 10000,
+      account: 'account1',
+      category: 'income-cat',
+    });
+    await setBudget({ category: 'cat1', month: '2024-01', amount: 10000 });
+    await db.insertTransaction({
+      date: '2024-01-15',
+      amount: -4000,
+      account: 'account1',
+      category: 'cat1',
+    });
+    await sheet.waitOnSpreadsheet();
+
+    await setCategoryRollover({
+      startMonth: '2024-01',
+      category: 'cat1',
+      flag: true,
+    });
+    await sheet.waitOnSpreadsheet();
+
+    // The $60 leftover carries into Feb's category balance instead of
+    // returning to To Budget.
+    expect(
+      await getSheetValue(monthUtils.sheetForMonth('2024-02'), 'leftover-cat1'),
+    ).toBe(6000);
+    expect(
+      await getSheetValue(monthUtils.sheetForMonth('2024-02'), 'to-budget'),
+    ).toBe(0);
+  });
+
+  it('forgives overspending when rollover is off', async () => {
+    await setupDatabase();
+
+    // $100 income, budget $50, spend $80 → $30 overspent in Jan.
+    await db.insertTransaction({
+      date: '2024-01-15',
+      amount: 10000,
+      account: 'account1',
+      category: 'income-cat',
+    });
+    await setBudget({ category: 'cat1', month: '2024-01', amount: 5000 });
+    await db.insertTransaction({
+      date: '2024-01-15',
+      amount: -8000,
+      account: 'account1',
+      category: 'cat1',
+    });
+    await sheet.waitOnSpreadsheet();
+
+    // The overspend is forgiven: it neither stays in the category nor
+    // reduces Feb's To Budget. (Without forgiveness, the $30 overspend
+    // would reduce Feb's To Budget from $50 to $20.)
+    expect(
+      await getSheetValue(monthUtils.sheetForMonth('2024-02'), 'leftover-cat1'),
+    ).toBe(0);
+    expect(
+      await getSheetValue(monthUtils.sheetForMonth('2024-02'), 'to-budget'),
+    ).toBe(5000);
+  });
+});

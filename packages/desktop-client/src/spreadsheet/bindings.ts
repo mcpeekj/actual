@@ -1,4 +1,6 @@
+import { currentDay } from '@actual-app/core/shared/months';
 import { q } from '@actual-app/core/shared/query';
+import type { Query } from '@actual-app/core/shared/query';
 import type {
   AccountEntity,
   CategoryEntity,
@@ -19,12 +21,18 @@ const categoryParametrizedField = parametrizedField<'category'>();
 const envelopeParametrizedField = parametrizedField<'envelope-budget'>();
 const trackingParametrizedField = parametrizedField<'tracking-budget'>();
 
+// Future-dated transactions are excluded from account balances: they are
+// scheduled, not yet real money. Today's transactions count.
+function excludeFuture(query: Query): Query {
+  return query.filter({ date: { $lte: currentDay() } });
+}
+
 export function accountBalance(accountId: AccountEntity['id']) {
   return {
     name: accountParametrizedField('balance')(accountId),
-    query: q('transactions')
-      .filter({ account: accountId })
-      .options({ splits: 'none' })
+    query: excludeFuture(
+      q('transactions').filter({ account: accountId }),
+    ).options({ splits: 'none' })
       .calculate({ $sum: '$amount' }),
   } satisfies Binding<'account', 'balance'>;
 }
@@ -32,9 +40,9 @@ export function accountBalance(accountId: AccountEntity['id']) {
 export function accountBalanceCleared(accountId: AccountEntity['id']) {
   return {
     name: accountParametrizedField('balanceCleared')(accountId),
-    query: q('transactions')
-      .filter({ account: accountId, cleared: true })
-      .options({ splits: 'none' })
+    query: excludeFuture(
+      q('transactions').filter({ account: accountId, cleared: true }),
+    ).options({ splits: 'none' })
       .calculate({ $sum: '$amount' }),
   } satisfies Binding<'account', 'balanceCleared'>;
 }
@@ -42,18 +50,18 @@ export function accountBalanceCleared(accountId: AccountEntity['id']) {
 export function accountBalanceUncleared(accountId: AccountEntity['id']) {
   return {
     name: accountParametrizedField('balanceUncleared')(accountId),
-    query: q('transactions')
-      .filter({ account: accountId, cleared: false })
-      .options({ splits: 'none' })
+    query: excludeFuture(
+      q('transactions').filter({ account: accountId, cleared: false }),
+    ).options({ splits: 'none' })
       .calculate({ $sum: '$amount' }),
   } satisfies Binding<'account', 'balanceUncleared'>;
 }
 
 export function allAccountBalance() {
   return {
-    query: q('transactions')
-      .filter({ 'account.closed': false })
-      .calculate({ $sum: '$amount' }),
+    query: excludeFuture(
+      q('transactions').filter({ 'account.closed': false }),
+    ).calculate({ $sum: '$amount' }),
     name: 'accounts-balance',
   } satisfies Binding<'account', 'accounts-balance'>;
 }
@@ -61,18 +69,24 @@ export function allAccountBalance() {
 export function onBudgetAccountBalance() {
   return {
     name: `onbudget-accounts-balance`,
-    query: q('transactions')
-      .filter({ 'account.offbudget': false, 'account.closed': false })
-      .calculate({ $sum: '$amount' }),
+    query: excludeFuture(
+      q('transactions').filter({
+        'account.offbudget': false,
+        'account.closed': false,
+      }),
+    ).calculate({ $sum: '$amount' }),
   } satisfies Binding<'account', 'onbudget-accounts-balance'>;
 }
 
 export function offBudgetAccountBalance() {
   return {
     name: `offbudget-accounts-balance`,
-    query: q('transactions')
-      .filter({ 'account.offbudget': true, 'account.closed': false })
-      .calculate({ $sum: '$amount' }),
+    query: excludeFuture(
+      q('transactions').filter({
+        'account.offbudget': true,
+        'account.closed': false,
+      }),
+    ).calculate({ $sum: '$amount' }),
   } satisfies Binding<'account', 'offbudget-accounts-balance'>;
 }
 
@@ -173,6 +187,7 @@ export const envelopeBudget = {
   catSumAmount: envelopeParametrizedField('sum-amount'),
   catBalance: envelopeParametrizedField('leftover'),
   catCarryover: envelopeParametrizedField('carryover'),
+  catRollover: envelopeParametrizedField('rollover'),
   catGoal: envelopeParametrizedField('goal'),
   catLongGoal: envelopeParametrizedField('long-goal'),
 } satisfies BudgetType<'envelope-budget'>;
@@ -197,6 +212,7 @@ export const trackingBudget = {
   catSumAmount: trackingParametrizedField('sum-amount'),
   catBalance: trackingParametrizedField('leftover'),
   catCarryover: trackingParametrizedField('carryover'),
+  catRollover: trackingParametrizedField('rollover'),
   catGoal: trackingParametrizedField('goal'),
   catLongGoal: trackingParametrizedField('long-goal'),
 } satisfies BudgetType<'tracking-budget'>;

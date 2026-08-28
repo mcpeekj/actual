@@ -720,6 +720,48 @@ export async function setCategoryCarryover({
   });
 }
 
+function setRollover(
+  table: string,
+  category: string,
+  month: string,
+  flag: boolean,
+): Promise<void> {
+  const existing = db.firstSync<
+    Pick<db.DbZeroBudget | db.DbReflectBudget, 'id'>
+  >(`SELECT id FROM ${table} WHERE month = ? AND category = ?`, [
+    month,
+    category,
+  ]);
+  if (existing) {
+    return db.update(table, { id: existing.id, rollover: flag ? 1 : 0 });
+  }
+  return db.insert(table, {
+    id: `${month}-${category}`,
+    month,
+    category,
+    rollover: flag ? 1 : 0,
+  });
+}
+
+export async function setCategoryRollover({
+  startMonth,
+  category,
+  flag,
+}: {
+  startMonth: string;
+  category: string;
+  flag: boolean;
+}): Promise<void> {
+  const table = getBudgetTable();
+  const months = getAllMonths(startMonth);
+
+  await batchMessages(async () => {
+    for (const month of months) {
+      void setRollover(table, category, dbMonth(month).toString(), flag);
+    }
+  });
+}
+
 function addNewLine(notes?: string) {
   return !notes ? '' : `${notes}\n`;
 }

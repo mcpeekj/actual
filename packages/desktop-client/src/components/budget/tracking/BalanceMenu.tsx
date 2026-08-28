@@ -14,16 +14,21 @@ type BalanceMenuProps = Omit<
 > & {
   categoryId: string;
   onCarryover: (carryover: boolean) => void;
+  onRollover?: (rollover: boolean) => void;
 };
 
 export function BalanceMenu({
   categoryId,
   onCarryover,
+  onRollover,
   ...props
 }: BalanceMenuProps) {
   const { t } = useTranslation();
   const carryover = useTrackingSheetValue(
     trackingBudget.catCarryover(categoryId),
+  );
+  const rollover = useTrackingSheetValue(
+    trackingBudget.catRollover(categoryId),
   );
   return (
     <Menu
@@ -33,17 +38,30 @@ export function BalanceMenu({
           case 'carryover':
             onCarryover?.(!carryover);
             break;
+          case 'rollover':
+            onRollover?.(!rollover);
+            break;
           default:
             throw new Error(`Unrecognized menu option: ${String(name)}`);
         }
       }}
       items={[
         {
-          name: 'carryover',
-          text: carryover
-            ? t('Remove overspending rollover')
-            : t('Rollover overspending'),
+          name: 'rollover',
+          text: rollover
+            ? t('Reset at month end')
+            : t('Roll over to next month'),
         },
+        ...(rollover
+          ? [
+              {
+                name: 'carryover',
+                text: carryover
+                  ? t('Remove overspending rollover')
+                  : t('Rollover overspending'),
+              },
+            ]
+          : []),
       ]}
     />
   );

@@ -69,8 +69,13 @@ export class CategoryTemplateContext {
       lastMonthSheet,
       `carryover-${category.id}`,
     );
+    const rollover = await getSheetBoolean(
+      lastMonthSheet,
+      `rollover-${category.id}`,
+    );
 
     if (
+      !rollover || // reset each month: nothing carries into this month
       (fromLastMonth < 0 && !carryover) || // overspend no carryover
       category.is_income || // tracking budget income categories
       (isTrackingBudget() && !carryover) // tracking budget regular categories

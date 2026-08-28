@@ -189,7 +189,7 @@ function undoMessage(message, oldData) {
         message.dataset === 'reflect_budgets'
       ) {
         // Only these fields are reversable
-        if (['buffered', 'amount', 'carryover'].includes(message.column)) {
+        if (['buffered', 'amount', 'carryover', 'rollover'].includes(message.column)) {
           return { ...message, value: 0 };
         }
         return null;

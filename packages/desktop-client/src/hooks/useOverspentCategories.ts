@@ -60,16 +60,31 @@ export function useOverspentCategories({
     [budgetType, categories],
   );
 
+  const categoryRolloverBindings = useMemo(
+    () =>
+      categories.map(category => [
+        category.id,
+        budgetType === 'tracking'
+          ? trackingBudget.catRollover(category.id)
+          : envelopeBudget.catRollover(category.id),
+      ]),
+    [budgetType, categories],
+  );
+
   const [overspendingByCategory, setOverspendingByCategory] = useState<
     Record<string, IntegerAmount>
   >({});
   const [carryoverFlagByCategory, setCarryoverFlagByCategory] = useState<
     Record<string, boolean>
   >({});
+  const [rolloverFlagByCategory, setRolloverFlagByCategory] = useState<
+    Record<string, boolean>
+  >({});
 
   useEffect(() => {
     setOverspendingByCategory({});
     setCarryoverFlagByCategory({});
+    setRolloverFlagByCategory({});
   }, [month]);
 
   const sheetName = monthUtils.sheetForMonth(month);
@@ -78,11 +93,11 @@ export function useOverspentCategories({
     const unbindList: (() => void)[] = [];
     for (const [categoryId, carryoverBinding] of categoryCarryoverBindings) {
       const unbind = spreadsheet.bind(sheetName, carryoverBinding, result => {
-        const isRolloverEnabled = Boolean(result.value);
-        if (isRolloverEnabled) {
+        const isCarryoverEnabled = Boolean(result.value);
+        if (isCarryoverEnabled) {
           setCarryoverFlagByCategory(prev => ({
             ...prev,
-            [categoryId]: isRolloverEnabled,
+            [categoryId]: isCarryoverEnabled,
           }));
         } else {
           // Update to remove covered category.
@@ -99,6 +114,31 @@ export function useOverspentCategories({
       unbindList.forEach(unbind => unbind());
     };
   }, [categoryCarryoverBindings, sheetName, spreadsheet]);
+
+  useEffect(() => {
+    const unbindList: (() => void)[] = [];
+    for (const [categoryId, rolloverBinding] of categoryRolloverBindings) {
+      const unbind = spreadsheet.bind(sheetName, rolloverBinding, result => {
+        const isRolloverEnabled = Boolean(result.value);
+        if (isRolloverEnabled) {
+          setRolloverFlagByCategory(prev => ({
+            ...prev,
+            [categoryId]: isRolloverEnabled,
+          }));
+        } else {
+          setRolloverFlagByCategory(prev => {
+            const { [categoryId]: _, ...rest } = prev;
+            return rest;
+          });
+        }
+      });
+      unbindList.push(unbind);
+    }
+
+    return () => {
+      unbindList.forEach(unbind => unbind());
+    };
+  }, [categoryRolloverBindings, sheetName, spreadsheet]);
 
   useEffect(() => {
     const unbindList: (() => void)[] = [];
@@ -127,9 +167,12 @@ export function useOverspentCategories({
   }, [categoryBalanceBindings, sheetName, spreadsheet]);
 
   return useMemo(() => {
-    // Ignore those that has rollover enabled.
+    // Only categories that accumulate a positive balance but forgive
+    // overspend (rollover on, carryover off) surface as needing coverage.
+    // Reset categories forgive overspending entirely and rollover categories
+    // that carry it cover it out of their own balance.
     const categoryIdsToReturn = Object.keys(overspendingByCategory).filter(
-      id => !carryoverFlagByCategory[id],
+      id => rolloverFlagByCategory[id] && !carryoverFlagByCategory[id],
     );
 
     const categoriesToReturn = categories
@@ -163,6 +206,7 @@ export function useOverspentCategories({
   }, [
     budgetType,
     carryoverFlagByCategory,
+    rolloverFlagByCategory,
     categories,
     categoryGroupsById,
     overspendingByCategory,

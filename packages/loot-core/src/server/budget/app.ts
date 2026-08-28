@@ -48,6 +48,7 @@ export type BudgetHandlers = {
   'budget/transfer-category': typeof actions.transferCategory;
   'budget/copy-until-year-end': typeof actions.copyUntilYearEnd;
   'budget/set-carryover': typeof actions.setCategoryCarryover;
+  'budget/set-category-rollover': typeof actions.setCategoryRollover;
   'budget/reset-income-carryover': typeof actions.resetIncomeCarryover;
   'get-categories': typeof getCategories;
   'get-budget-bounds': typeof getBudgetBounds;
@@ -143,6 +144,10 @@ app.method(
 app.method(
   'budget/set-carryover',
   mutator(undoable(actions.setCategoryCarryover)),
+);
+app.method(
+  'budget/set-category-rollover',
+  mutator(undoable(actions.setCategoryRollover)),
 );
 app.method(
   'budget/reset-income-carryover',
@@ -261,6 +266,7 @@ async function envelopeBudgetMonth({ month }: { month: string }) {
           value(`sum-amount-${cat.id}`),
           value(`leftover-${cat.id}`),
           value(`carryover-${cat.id}`),
+          value(`rollover-${cat.id}`),
           value(`goal-${cat.id}`),
           value(`long-goal-${cat.id}`),
         ]);
@@ -310,6 +316,7 @@ async function trackingBudgetMonth({ month }: { month: string }) {
 
       if (!group.is_income) {
         values.push(value(`carryover-${cat.id}`));
+        values.push(value(`rollover-${cat.id}`));
       }
     }
   }

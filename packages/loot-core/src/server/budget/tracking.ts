@@ -25,22 +25,26 @@ export async function createCategory(cat, sheetName, prevSheetName) {
     dependencies: [
       `budget-${cat.id}`,
       `sum-amount-${cat.id}`,
+      `${sheetName}!rollover-${cat.id}`,
       `${prevSheetName}!carryover-${cat.id}`,
       `${prevSheetName}!leftover-${cat.id}`,
     ],
-    run: (budgeted, sumAmount, prevCarryover, prevLeftover) => {
+    run: (budgeted, sumAmount, rollover, prevCarryover, prevLeftover) => {
+      // Rollover off (default) resets the category each month: nothing
+      // carries into it. Rollover on keeps the existing carryover behavior.
+      const carry = rollover ? prevCarryover : false;
       if (cat.is_income) {
         return safeNumber(
           number(budgeted) -
             number(sumAmount) +
-            (prevCarryover ? number(prevLeftover) : 0),
+            (carry ? number(prevLeftover) : 0),
         );
       }
 
       return safeNumber(
         number(budgeted) +
           number(sumAmount) +
-          (prevCarryover ? number(prevLeftover) : 0),
+          (carry ? number(prevLeftover) : 0),
       );
     },
   });
@@ -50,17 +54,19 @@ export async function createCategory(cat, sheetName, prevSheetName) {
       `budget-${cat.id}`,
       `sum-amount-${cat.id}`,
       `carryover-${cat.id}`,
+      `rollover-${cat.id}`,
     ],
     // TODO: Why refresh??
     refresh: true,
-    run: (budgeted, sumAmount, carryover) => {
-      return carryover
+    run: (budgeted, sumAmount, carryover, rollover) => {
+      return carryover && rollover
         ? Math.max(0, safeNumber(number(budgeted) + number(sumAmount)))
         : sumAmount;
     },
   });
 
   sheet.get().createStatic(sheetName, `carryover-${cat.id}`, false);
+  sheet.get().createStatic(sheetName, `rollover-${cat.id}`, false);
 }
 
 export function createCategoryGroup(group, sheetName) {

@@ -71,20 +71,32 @@ export function ReconcilingMessage({
             style={{
               color: theme.noticeTextLight,
               flex: 1,
-              flexDirection: 'row',
               alignItems: 'center',
               justifyContent: 'center',
             }}
           >
-            <SvgCheckCircle1
+            <View
               style={{
-                width: 13,
-                height: 13,
-                color: 'inherit',
-                marginRight: 3,
+                flexDirection: 'row',
+                alignItems: 'center',
+                justifyContent: 'center',
               }}
-            />
-            <Trans>All reconciled!</Trans>
+            >
+              <SvgCheckCircle1
+                style={{
+                  width: 13,
+                  height: 13,
+                  color: 'inherit',
+                  marginRight: 3,
+                }}
+              />
+              <Trans>All reconciled!</Trans>
+            </View>
+            <Text style={{ fontSize: 12, marginTop: 2, textAlign: 'center' }}>
+              <Trans>
+                The highlighted transactions will be locked when you finish.
+              </Trans>
+            </Text>
           </View>
         ) : (
           <View style={{ color: theme.tableText }}>

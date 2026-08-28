@@ -15,6 +15,7 @@ type BalanceMenuProps = Omit<
   categoryId: string;
   onTransfer?: () => void;
   onCarryover?: (carryOver: boolean) => void;
+  onRollover?: (rollover: boolean) => void;
   onCover?: () => void;
 };
 
@@ -22,6 +23,7 @@ export function BalanceMenu({
   categoryId,
   onTransfer,
   onCarryover,
+  onRollover,
   onCover,
   ...props
 }: BalanceMenuProps) {
@@ -29,6 +31,9 @@ export function BalanceMenu({
 
   const carryover = useEnvelopeSheetValue(
     envelopeBudget.catCarryover(categoryId),
+  );
+  const rollover = useEnvelopeSheetValue(
+    envelopeBudget.catRollover(categoryId),
   );
   const balance =
     useEnvelopeSheetValue(envelopeBudget.catBalance(categoryId)) ?? 0;
@@ -43,6 +48,9 @@ export function BalanceMenu({
             break;
           case 'carryover':
             onCarryover?.(!carryover);
+            break;
+          case 'rollover':
+            onRollover?.(!rollover);
             break;
           case 'cover':
             onCover?.();
@@ -69,11 +77,23 @@ export function BalanceMenu({
             ]
           : []),
         {
-          name: 'carryover',
-          text: carryover
-            ? t('Remove overspending rollover')
-            : t('Rollover overspending'),
+          name: 'rollover',
+          text: rollover
+            ? t('Reset at month end')
+            : t('Roll over to next month'),
         },
+        // Overspending rollover only means anything for categories that
+        // accumulate month to month.
+        ...(rollover
+          ? [
+              {
+                name: 'carryover',
+                text: carryover
+                  ? t('Remove overspending rollover')
+                  : t('Rollover overspending'),
+              },
+            ]
+          : []),
       ]}
     />
   );

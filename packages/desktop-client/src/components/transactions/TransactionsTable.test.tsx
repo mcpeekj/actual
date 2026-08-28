@@ -6,6 +6,7 @@ import {
   generateTransaction,
 } from '@actual-app/core/mocks';
 import { initServer } from '@actual-app/core/platform/client/connection';
+import * as monthUtils from '@actual-app/core/shared/months';
 import {
   addSplitTransaction,
   realizeTempTransactions,
@@ -149,6 +150,7 @@ type LiveTransactionTableProps = {
   showAccount: boolean;
   showCategory: boolean;
   showCleared: boolean;
+  isReconciling?: boolean;
   isAdding: boolean;
   onTransactionsChange?: (newTrans: TransactionEntity[]) => void;
   onCloseAddTransaction?: () => void;
@@ -1406,6 +1408,135 @@ describe('Transactions', () => {
 
       // Verify the tag was added to the note correctly
       expect(getTransactions()[2].notes).toBe('spending on #coffee');
+    });
+  });
+
+  describe('reconcile lock preview', () => {
+    test('highlights cleared, unreconciled transactions while reconciling', () => {
+      const transactions = generateTransactions(3, []);
+      transactions[0] = {
+        ...transactions[0],
+        amount: -5000,
+        cleared: true,
+        reconciled: false,
+      };
+      transactions[1] = {
+        ...transactions[1],
+        amount: -1000,
+        cleared: true,
+        reconciled: true,
+      };
+      transactions[2] = {
+        ...transactions[2],
+        amount: -2000,
+        cleared: false,
+        reconciled: false,
+      };
+
+      const { container, updateProps } = renderTransactions({ transactions });
+
+      // Outside of reconciliation nothing is marked for locking
+      expect(
+        container.querySelectorAll('[data-reconcile-preview="true"]'),
+      ).toHaveLength(0);
+
+      updateProps({ isReconciling: true });
+
+      const highlighted = container.querySelectorAll(
+        '[data-reconcile-preview="true"]',
+      );
+
+      // Only the cleared + unreconciled row is marked for locking. The
+      // reconciled row (already locked) and the uncleared row (pending) are
+      // left alone. (Amounts render in the debit column, so -5000 shows as
+      // "50.00".)
+      expect(highlighted).toHaveLength(1);
+      expect(highlighted[0].textContent).toContain('50.00');
+    });
+
+    test('marks the parent of an expanded split for locking', () => {
+      // A cleared + unreconciled split parent is locked along with its
+      // children when the split is expanded.
+      const transactions = generateTransactions(1, [0]);
+      transactions[0] = {
+        ...transactions[0],
+        amount: -5000,
+        cleared: true,
+        reconciled: false,
+      };
+
+      const { container } = renderTransactions({
+        transactions,
+        isReconciling: true,
+      });
+
+      const highlighted = container.querySelectorAll(
+        '[data-reconcile-preview="true"]',
+      );
+
+      // The split is collapsed by default, so only the parent row is shown.
+      expect(highlighted).toHaveLength(1);
+      expect(highlighted[0].textContent).toContain('50.00');
+    });
+  });
+
+  describe('future-dated transactions', () => {
+    // `currentDay()` returns 2017-01-01 in tests, so pick dates around it.
+    test('italicizes future transactions and draws a separator line', () => {
+      const transactions = generateTransactions(3, []);
+      transactions[0] = {
+        ...transactions[0],
+        date: '2017-02-15',
+        amount: -5000,
+      };
+      transactions[1] = {
+        ...transactions[1],
+        date: '2017-01-01',
+        amount: -1000,
+      };
+      transactions[2] = {
+        ...transactions[2],
+        date: '2016-11-15',
+        amount: -2000,
+      };
+
+      const { container } = renderTransactions({ transactions });
+
+      // Only the future-dated row is marked as future.
+      const futureRows = container.querySelectorAll('[data-future="true"]');
+      expect(futureRows).toHaveLength(1);
+      expect(futureRows[0].textContent).toContain('50.00');
+
+      // The hard separator line sits on the first non-future row, between
+      // the future block and the current one.
+      const separatorRows = container.querySelectorAll(
+        '[data-future-separator="true"]',
+      );
+      expect(separatorRows).toHaveLength(1);
+      expect(separatorRows[0].textContent).toContain('10.00');
+    });
+
+    test('does not draw a separator when there are no future transactions', () => {
+      const transactions = generateTransactions(2, []);
+      transactions[0] = {
+        ...transactions[0],
+        date: '2017-01-01',
+        amount: -5000,
+      };
+      transactions[1] = {
+        ...transactions[1],
+        date: '2016-11-15',
+        amount: -2000,
+      };
+
+      const { container } = renderTransactions({ transactions });
+
+      expect(
+        container.querySelectorAll('[data-future="true"]'),
+      ).toHaveLength(0);
+      expect(
+        container.querySelectorAll('[data-future-separator="true"]'),
+      ).toHaveLength(0);
     });
   });
 });

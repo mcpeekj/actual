@@ -17,6 +17,7 @@ export function createBlankCategory(cat, months) {
   if (months.length > 0) {
     const sheetName = getBlankSheet(months);
     sheet.get().createStatic(sheetName, `carryover-${cat.id}`, false);
+    sheet.get().createStatic(sheetName, `rollover-${cat.id}`, false);
     sheet.get().createStatic(sheetName, `leftover-${cat.id}`, 0);
     sheet.get().createStatic(sheetName, `leftover-pos-${cat.id}`, 0);
   }
@@ -44,22 +45,40 @@ export function createCategory(cat, sheetName, prevSheetName) {
     }
 
     sheet.get().createStatic(sheetName, `carryover-${cat.id}`, false);
+    sheet.get().createStatic(sheetName, `rollover-${cat.id}`, false);
 
     sheet.get().createDynamic(sheetName, `leftover-${cat.id}`, {
       initialValue: 0,
       dependencies: [
         `budget-${cat.id}`,
         `sum-amount-${cat.id}`,
+        `${sheetName}!rollover-${cat.id}`,
         `${prevSheetName}!carryover-${cat.id}`,
         `${prevSheetName}!leftover-${cat.id}`,
         `${prevSheetName}!leftover-pos-${cat.id}`,
       ],
-      run: (budgeted, spent, prevCarryover, prevLeftover, prevLeftoverPos) => {
-        return safeNumber(
-          number(budgeted) +
-            number(spent) +
-            (prevCarryover ? number(prevLeftover) : number(prevLeftoverPos)),
-        );
+      run: (
+        budgeted,
+        spent,
+        rollover,
+        prevCarryover,
+        prevLeftover,
+        prevLeftoverPos,
+      ) => {
+        if (rollover) {
+          return safeNumber(
+            number(budgeted) +
+              number(spent) +
+              (prevCarryover
+                ? number(prevLeftover)
+                : number(prevLeftoverPos)),
+          );
+        }
+        // Rollover off (default): the category resets at month end. No
+        // leftover carries into this month -- the previous positive leftover
+        // is returned to To Budget (see `last-month-leftover`) and any
+        // overspend is forgiven.
+        return safeNumber(number(budgeted) + number(spent));
       },
     });
 
@@ -132,16 +151,50 @@ export function createSummary(groups, categories, prevSheetName, sheetName) {
       expenseCategories.map(cat => [
         `${prevSheetName}!leftover-${cat.id}`,
         `${prevSheetName}!carryover-${cat.id}`,
+        // The current month's rollover policy decides how last month's
+        // leftover is treated, so toggling it mid-stream stays consistent.
+        `${sheetName}!rollover-${cat.id}`,
       ]),
     ),
     run: (...data) => {
       data = unflatten2(data);
       return safeNumber(
-        data.reduce((total, [leftover, carryover]) => {
+        data.reduce((total, [leftover, carryover, rollover]) => {
+          // A category that resets each month forgives overspending
+          // entirely, and a rollover category that carries its overspend
+          // covers it out of its own balance. Only categories that keep a
+          // positive balance but forgive overspend (rollover on, carryover
+          // off) surface the overspend here.
+          if (!rollover) {
+            return total;
+          }
           if (carryover) {
             return total;
           }
           return total + Math.min(0, number(leftover));
+        }, 0),
+      );
+    },
+  });
+
+  // Positive leftover from categories that reset at month end returns to
+  // "To Budget" so it can be assigned again.
+  sheet.get().createDynamic(sheetName, 'last-month-leftover', {
+    initialValue: 0,
+    dependencies: flatten2(
+      expenseCategories.map(cat => [
+        `${prevSheetName}!leftover-pos-${cat.id}`,
+        `${sheetName}!rollover-${cat.id}`,
+      ]),
+    ),
+    run: (...data) => {
+      data = unflatten2(data);
+      return safeNumber(
+        data.reduce((total, [leftoverPos, rollover]) => {
+          if (rollover) {
+            return total;
+          }
+          return total + number(leftoverPos);
         }, 0),
       );
     },
@@ -195,13 +248,15 @@ export function createSummary(groups, categories, prevSheetName, sheetName) {
     dependencies: [
       'available-funds',
       'last-month-overspent',
+      'last-month-leftover',
       'total-budgeted',
       'buffered-selected',
     ],
-    run: (available, lastOverspent, totalBudgeted, buffered) => {
+    run: (available, lastOverspent, lastMonthLeftover, totalBudgeted, buffered) => {
       return safeNumber(
         number(available) +
           number(lastOverspent) +
+          number(lastMonthLeftover) +
           number(totalBudgeted) -
           number(buffered),
       );
@@ -304,6 +359,13 @@ export function handleCategoryChange(months, oldValue, newValue) {
         .addDependencies(sheetName, 'last-month-overspent', [
           `${prevSheetName}!leftover-${id}`,
           `${prevSheetName}!carryover-${id}`,
+          `${sheetName}!rollover-${id}`,
+        ]);
+      sheet
+        .get()
+        .addDependencies(sheetName, 'last-month-leftover', [
+          `${prevSheetName}!leftover-pos-${id}`,
+          `${sheetName}!rollover-${id}`,
         ]);
 
       addDeps(sheetName, groupId, id);

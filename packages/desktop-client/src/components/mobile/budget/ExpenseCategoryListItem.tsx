@@ -253,6 +253,20 @@ export function ExpenseCategoryListItem({
     [category, onBudgetAction, month, dispatch, balanceMenuModalName],
   );
 
+  const onRollover = useCallback(
+    (rollover: boolean) => {
+      if (!category) {
+        return;
+      }
+      onBudgetAction(month, 'rollover', {
+        category: category.id,
+        flag: rollover,
+      });
+      dispatch(collapseModals({ rootModalName: balanceMenuModalName }));
+    },
+    [category, onBudgetAction, month, dispatch, balanceMenuModalName],
+  );
+
   const catBalance = useSheetValue<
     'envelope-budget' | 'tracking-budget',
     'leftover'
@@ -374,6 +388,7 @@ export function ExpenseCategoryListItem({
               month,
               categoryId: category.id,
               onCarryover,
+              onRollover,
               onTransfer,
               onCover,
             },
@@ -389,6 +404,7 @@ export function ExpenseCategoryListItem({
               month,
               categoryId: category.id,
               onCarryover,
+              onRollover,
             },
           },
         }),
@@ -400,6 +416,7 @@ export function ExpenseCategoryListItem({
     dispatch,
     month,
     onCarryover,
+    onRollover,
     onTransfer,
     onCover,
   ]);
