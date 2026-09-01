@@ -1,7 +1,9 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { Trans, useTranslation } from 'react-i18next';
 
 import { Button } from '@actual-app/components/button';
+import { SvgGlobe } from '@actual-app/components/icons/v1';
+import { Input } from '@actual-app/components/input';
 import { SpaceBetween } from '@actual-app/components/space-between';
 import { Text } from '@actual-app/components/text';
 import { theme } from '@actual-app/components/theme';
@@ -10,10 +12,16 @@ import type { AccountEntity } from '@actual-app/core/types/models';
 
 import { useUnlinkAccountMutation } from '#accounts';
 import { Modal, ModalCloseButton, ModalHeader } from '#components/common/Modal';
+import { useSyncedPref } from '#hooks/useSyncedPref';
 import { pushModal } from '#modals/modalsSlice';
 import { useDispatch } from '#redux';
 
 import { BankSyncCheckboxOptions } from './BankSyncCheckboxOptions';
+import {
+  bankWebsiteUrlKey,
+  getAccountWebsiteUrl,
+  isSimpleFinAccount,
+} from './bankSyncUtils';
 import { FieldMapping } from './FieldMapping';
 import { useBankSyncAccountSettings } from './useBankSyncAccountSettings';
 
@@ -166,8 +174,22 @@ export function EditSyncAccount({ account }: EditSyncAccountProps) {
     saveSettings,
   } = useBankSyncAccountSettings(account.id);
 
+  // Bank-level website URL. It's stored once per institution and shared by
+  // every account linked to the same bank, so editing it here updates the
+  // account shortcut for the whole bank.
+  const [bankUrlPref, setBankUrlPref] = useSyncedPref(
+    bankWebsiteUrlKey(account.bank),
+  );
+  const [website, setWebsite] = useState(
+    getAccountWebsiteUrl(account, bankUrlPref) ?? '',
+  );
+  const websiteUrl = website.trim() || '';
+
   const onSave = async (close: () => void) => {
     saveSettings();
+    if (account.bank) {
+      setBankUrlPref(websiteUrl);
+    }
     close();
   };
 
@@ -243,6 +265,64 @@ export function EditSyncAccount({ account }: EditSyncAccountProps) {
             setUpdateDates={setUpdateDates}
             helpMode="desktop"
           />
+
+          {isSimpleFinAccount(account) && (
+            <View style={{ marginTop: '1em' }}>
+              <Text style={{ fontSize: 15, marginBottom: '.5em' }}>
+                <Trans>Bank website</Trans>
+              </Text>
+              <View
+                style={{
+                  flexDirection: 'row',
+                  alignItems: 'center',
+                  gap: 8,
+                }}
+              >
+                <Text
+                  style={{
+                    color: theme.formLabelText,
+                    flexShrink: 0,
+                  }}
+                >
+                  <Trans>URL</Trans>
+                </Text>
+                <Input
+                  value={website}
+                  placeholder="https://"
+                  onChangeValue={setWebsite}
+                  style={{ flex: 1 }}
+                />
+                {websiteUrl && (
+                  <Button
+                    variant="bare"
+                    aria-label={t('Open website')}
+                    onPress={() =>
+                      window.open(
+                        websiteUrl.startsWith('http')
+                          ? websiteUrl
+                          : `https://${websiteUrl}`,
+                        '_blank',
+                        'noopener,noreferrer',
+                      )
+                    }
+                  >
+                    <SvgGlobe width={15} height={15} />
+                  </Button>
+                )}
+              </View>
+              <Text
+                style={{
+                  color: theme.pageTextLight,
+                  marginTop: 6,
+                  fontSize: 12,
+                }}
+              >
+                <Trans>
+                  The URL is shared by every account linked to this bank.
+                </Trans>
+              </Text>
+            </View>
+          )}
 
           <View
             style={{

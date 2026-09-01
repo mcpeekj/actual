@@ -6,7 +6,6 @@ import { Button } from '@actual-app/components/button';
 import {
   SvgClose,
   SvgDotsHorizontalTriple,
-  SvgGlobe,
   SvgLockOpen,
 } from '@actual-app/components/icons/v1';
 import { SvgLockClosed, SvgNotesPaper } from '@actual-app/components/icons/v2';
@@ -54,7 +53,6 @@ function AccountDetailsSection({ account }: AccountDetailsSectionProps) {
   const { mutate: updateAccount } = useUpdateAccountMutation();
   const [number, setNumber] = useState(account.account_number ?? '');
   const [revealNumber, setRevealNumber] = useState(false);
-  const [website, setWebsite] = useState(account.website_url ?? '');
 
   const save = (patch: Partial<AccountEntity>) => {
     updateAccount({ account: { ...account, ...patch } });
@@ -122,32 +120,6 @@ function AccountDetailsSection({ account }: AccountDetailsSectionProps) {
         >
           {revealNumber ? t('Hide') : t('Show')}
         </Button>
-      </View>
-
-      <View style={rowStyle}>
-        <Text style={labelStyle}>
-          <Trans>Website</Trans>
-        </Text>
-        <Input
-          value={website}
-          placeholder="https://"
-          onChangeValue={setWebsite}
-          onUpdate={() =>
-            save({ website_url: website.trim() ? website.trim() : null })
-          }
-          style={{ flex: 1 }}
-        />
-        {website.trim() && (
-          <Button
-            variant="bare"
-            aria-label={t('Open website')}
-            onPress={() =>
-              window.open(website.trim(), '_blank', 'noopener,noreferrer')
-            }
-          >
-            <SvgGlobe width={15} height={15} />
-          </Button>
-        )}
       </View>
     </View>
   );

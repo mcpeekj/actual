@@ -1,8 +1,9 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { Trans, useTranslation } from 'react-i18next';
 import { useParams } from 'react-router';
 
 import { Button } from '@actual-app/components/button';
+import { Input } from '@actual-app/components/input';
 import { SpaceBetween } from '@actual-app/components/space-between';
 import { Text } from '@actual-app/components/text';
 import { theme } from '@actual-app/components/theme';
@@ -10,12 +11,18 @@ import { View } from '@actual-app/components/view';
 
 import { useUnlinkAccountMutation } from '#accounts';
 import { BankSyncCheckboxOptions } from '#components/banksync/BankSyncCheckboxOptions';
+import {
+  bankWebsiteUrlKey,
+  getAccountWebsiteUrl,
+  isSimpleFinAccount,
+} from '#components/banksync/bankSyncUtils';
 import { FieldMapping } from '#components/banksync/FieldMapping';
 import { useBankSyncAccountSettings } from '#components/banksync/useBankSyncAccountSettings';
 import { MobileBackButton } from '#components/mobile/MobileBackButton';
 import { MobilePageHeader, Page } from '#components/Page';
 import { useAccount } from '#hooks/useAccount';
 import { useNavigate } from '#hooks/useNavigate';
+import { useSyncedPref } from '#hooks/useSyncedPref';
 import { pushModal } from '#modals/modalsSlice';
 import { useDispatch } from '#redux';
 
@@ -45,12 +52,24 @@ export function MobileBankSyncAccountEditPage() {
     saveSettings,
   } = useBankSyncAccountSettings(accountId!);
 
+  // Bank-level website URL, shared by every account linked to the same bank.
+  const [bankUrlPref, setBankUrlPref] = useSyncedPref(
+    bankWebsiteUrlKey(account?.bank ?? null),
+  );
+  const [website, setWebsite] = useState(
+    account ? (getAccountWebsiteUrl(account, bankUrlPref) ?? '') : '',
+  );
+  const websiteUrl = website.trim() || '';
+
   const handleCancel = () => {
     void navigate('/bank-sync');
   };
 
   const handleSave = async () => {
     saveSettings();
+    if (account?.bank) {
+      setBankUrlPref(websiteUrl);
+    }
     void navigate('/bank-sync');
   };
 
@@ -157,6 +176,47 @@ export function MobileBankSyncAccountEditPage() {
               setUpdateDates={setUpdateDates}
               helpMode="mobile"
             />
+
+            {isSimpleFinAccount(account) && (
+              <View style={{ marginTop: 20 }}>
+                <Text style={{ fontSize: 15, marginBottom: 10 }}>
+                  <Trans>Bank website</Trans>
+                </Text>
+                <View
+                  style={{
+                    flexDirection: 'row',
+                    alignItems: 'center',
+                    gap: 8,
+                  }}
+                >
+                  <Text
+                    style={{
+                      color: theme.formLabelText,
+                      flexShrink: 0,
+                    }}
+                  >
+                    <Trans>URL</Trans>
+                  </Text>
+                  <Input
+                    value={website}
+                    placeholder="https://"
+                    onChangeValue={setWebsite}
+                    style={{ flex: 1 }}
+                  />
+                </View>
+                <Text
+                  style={{
+                    color: theme.pageTextLight,
+                    marginTop: 6,
+                    fontSize: 12,
+                  }}
+                >
+                  <Trans>
+                    The URL is shared by every account linked to this bank.
+                  </Trans>
+                </Text>
+              </View>
+            )}
           </View>
         </View>
 

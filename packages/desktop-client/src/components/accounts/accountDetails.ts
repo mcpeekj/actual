@@ -2,7 +2,9 @@
 //
 // `type`/`subtype` are surfaced from DB columns that predate the fork (they
 // were reserved for bank-sync metadata). Here they're user-editable and
-// manual-only. `account_number` and `website_url` are brand new, user-provided.
+// manual-only. `account_number` is brand new, user-provided. `website_url` is
+// the legacy per-account fallback; the URL is now stored per-bank in the
+// `bank-website-url-*` synced pref (see components/banksync/bankSyncUtils.ts).
 export const ACCOUNT_TYPES: Array<[string, string]> = [
   ['', 'No type'],
   ['checking', 'Checking'],

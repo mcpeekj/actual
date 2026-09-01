@@ -122,7 +122,10 @@ export function BankSync() {
                 </Text>
               )}
               <View style={styles.tableContainer}>
-                <AccountsHeader unlinked={syncProvider === 'unlinked'} />
+                <AccountsHeader
+                  unlinked={syncProvider === 'unlinked'}
+                  showUrl={syncProvider === 'simpleFin'}
+                />
                 <AccountsList
                   accounts={accounts}
                   hoveredAccount={hoveredAccount}

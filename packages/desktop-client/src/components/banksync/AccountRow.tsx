@@ -11,6 +11,13 @@ import { format as formatDate } from 'date-fns';
 import type { Locale } from 'date-fns';
 
 import { Cell, Row } from '#components/table';
+import { useSyncedPref } from '#hooks/useSyncedPref';
+
+import {
+  bankWebsiteUrlKey,
+  getAccountWebsiteUrl,
+  isSimpleFinAccount,
+} from './bankSyncUtils';
 
 type AccountRowProps = {
   account: AccountEntity;
@@ -29,6 +36,9 @@ export const AccountRow = memo(
     // institution; show a localized fallback for linked accounts.
     const bankName =
       account.bank && !account.bankName ? t('Unknown') : account.bankName;
+
+    const [bankUrlPref] = useSyncedPref(bankWebsiteUrlKey(account.bank));
+    const websiteUrl = getAccountWebsiteUrl(account, bankUrlPref);
 
     const lastSyncString = tsToRelativeTime(account.last_sync, locale, {
       capitalize: true,
@@ -74,6 +84,23 @@ export const AccountRow = memo(
         >
           {bankName}
         </Cell>
+
+        {isSimpleFinAccount(account) && (
+          <Cell
+            name="bankUrl"
+            width="flex"
+            plain
+            style={{
+              color: theme.tableText,
+              padding: '10px',
+              overflow: 'hidden',
+              textOverflow: 'ellipsis',
+              whiteSpace: 'nowrap',
+            }}
+          >
+            {websiteUrl ?? ''}
+          </Cell>
+        )}
 
         {account.account_sync_source ? (
           <Tooltip
