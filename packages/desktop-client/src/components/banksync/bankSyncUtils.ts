@@ -87,3 +87,33 @@ export function getGroupedBankSyncEntries(
       isSyncProvider(entry[0]) && entry[1] != null,
   );
 }
+
+// A linked institution's website URL is stored once in a synced pref keyed by
+// the provider's institution id (`account.bank`) and shared by every account
+// at that bank. The account-level `website_url` is kept only as a fallback so
+// URLs entered before the bank-level field existed keep working until the
+// bank URL is set.
+export function bankWebsiteUrlKey(
+  bankId: string | null | undefined,
+): `bank-website-url-${string}` {
+  return `bank-website-url-${bankId ?? ''}`;
+}
+
+export function getAccountWebsiteUrl(
+  account: Pick<AccountEntity, 'website_url'>,
+  bankUrlPref: string | undefined,
+): string | null {
+  if (bankUrlPref && bankUrlPref.trim()) {
+    return bankUrlPref.trim();
+  }
+  const accountUrl = account.website_url?.trim();
+  return accountUrl || null;
+}
+
+// The bank-website URL is scoped to SimpleFIN, the only provider the fork
+// uses that reports a shared institution across multiple accounts.
+export function isSimpleFinAccount(
+  account: Pick<AccountEntity, 'account_sync_source'>,
+): boolean {
+  return account.account_sync_source === 'simpleFin';
+}

@@ -7,7 +7,13 @@ import { View } from '@actual-app/components/view';
 import { tsToRelativeTime } from '@actual-app/core/shared/util';
 import type { AccountEntity } from '@actual-app/core/types/models';
 
+import {
+  bankWebsiteUrlKey,
+  getAccountWebsiteUrl,
+  isSimpleFinAccount,
+} from '#components/banksync/bankSyncUtils';
 import { useLocale } from '#hooks/useLocale';
+import { useSyncedPref } from '#hooks/useSyncedPref';
 
 type BankSyncAccountsListItemProps = {
   account: AccountEntity;
@@ -22,6 +28,8 @@ export function BankSyncAccountsListItem({
 }: BankSyncAccountsListItemProps) {
   const { t } = useTranslation();
   const locale = useLocale();
+
+  const [bankUrlPref] = useSyncedPref(bankWebsiteUrlKey(account.bank));
 
   const lastSyncString = isLinked
     ? tsToRelativeTime(account.last_sync, locale, {
@@ -66,6 +74,20 @@ export function BankSyncAccountsListItem({
               }}
             >
               {account.bankName ?? t('Unknown')}
+            </Text>
+          )}
+          {isLinked && isSimpleFinAccount(account) && (
+            <Text
+              style={{
+                fontSize: 13,
+                color: theme.pageTextSubdued,
+                overflow: 'hidden',
+                textOverflow: 'ellipsis',
+                whiteSpace: 'nowrap',
+                maxWidth: '100%',
+              }}
+            >
+              {getAccountWebsiteUrl(account, bankUrlPref) ?? ''}
             </Text>
           )}
           {isLinked && lastSyncString && (

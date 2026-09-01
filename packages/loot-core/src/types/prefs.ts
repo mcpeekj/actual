@@ -49,6 +49,9 @@ export type SyncedPrefs = Partial<
     | `sync-import-notes-${string}`
     | `sync-import-transactions-${string}`
     | `sync-update-dates-${string}`
+    // Website URL for a linked institution, keyed by the sync provider's
+    // institution ("bank") id. Shared by every account at that bank.
+    | `bank-website-url-${string}`
     | `ofx-fallback-missing-payee-${string}`
     | `ofx-swap-payee-memo-${string}`
     | `qif-swap-payee-memo-${string}`

@@ -38,6 +38,10 @@ import { format as formatDate } from 'date-fns';
 
 import { isAccountFailedSync } from '#accounts/syncStatus';
 import { AnimatedRefresh } from '#components/AnimatedRefresh';
+import {
+  bankWebsiteUrlKey,
+  getAccountWebsiteUrl,
+} from '#components/banksync/bankSyncUtils';
 import { Search } from '#components/common/Search';
 import { FilterButton } from '#components/filters/FiltersMenu';
 import { FiltersStack } from '#components/filters/FiltersStack';
@@ -636,6 +640,13 @@ function AccountNameField({
   const { t } = useTranslation();
   const [editingName, setEditingName] = useState(false);
 
+  // The website shortcut points at the bank-level URL (shared by every
+  // account at the bank), falling back to the old per-account value.
+  const [bankUrlPref] = useSyncedPref(bankWebsiteUrlKey(account?.bank ?? null));
+  const websiteUrl = account
+    ? getAccountWebsiteUrl(account, bankUrlPref)
+    : null;
+
   const handleSave = (newName: string) => {
     onSaveName(newName);
     setEditingName(false);
@@ -698,18 +709,15 @@ function AccountNameField({
           </View>
 
           <View style={{ flexDirection: 'row', width: 76 }}>
-            {account?.website_url && (
+            {websiteUrl && (
               <Button
                 variant="bare"
                 aria-label={t('Open website')}
                 className="hover-visible"
                 onPress={() => {
-                  if (!account?.website_url) {
-                    return;
-                  }
-                  const url = account.website_url.startsWith('http')
-                    ? account.website_url
-                    : `https://${account.website_url}`;
+                  const url = websiteUrl.startsWith('http')
+                    ? websiteUrl
+                    : `https://${websiteUrl}`;
                   window.open(url, '_blank', 'noopener,noreferrer');
                 }}
               >

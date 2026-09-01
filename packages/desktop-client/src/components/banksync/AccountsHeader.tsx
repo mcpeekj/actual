@@ -5,9 +5,11 @@ import { Cell, TableHeader } from '#components/table';
 
 type AccountsHeaderProps = {
   unlinked: boolean;
+  // The bank-website URL column only appears for SimpleFIN sections.
+  showUrl?: boolean;
 };
 
-export function AccountsHeader({ unlinked }: AccountsHeaderProps) {
+export function AccountsHeader({ unlinked, showUrl }: AccountsHeaderProps) {
   const { t } = useTranslation();
 
   return (
@@ -24,6 +26,13 @@ export function AccountsHeader({ unlinked }: AccountsHeaderProps) {
             width="flex"
             style={{ paddingLeft: '10px' }}
           />
+          {showUrl && (
+            <Cell
+              value={t('URL')}
+              width="flex"
+              style={{ paddingLeft: '10px' }}
+            />
+          )}
           <Cell
             value={t('Last sync')}
             width={160}
