@@ -1033,16 +1033,26 @@ class AccountInternal extends PureComponent<
     return null;
   };
 
-  lockTransactions = async () => {
+  lockTransactions = async (): Promise<Array<TransactionEntity['id']>> => {
     const { accountId } = this.props;
     if (!accountId) {
-      return;
+      return [];
     }
 
     this.setState({ workingHard: true });
 
-    await reconciliation.lockTransactions(accountId);
+    const lockedTransactionIds =
+      await reconciliation.lockTransactions(accountId);
+
+    // Reconciling settles transactions, so drop the "new" (bold) state for
+    // the locked ones — they stop standing out once reconciled.
+    lockedTransactionIds.forEach(id => {
+      this.props.dispatch(updateNewTransactions({ id }));
+    });
+
     await this.refetchTransactions();
+
+    return lockedTransactionIds;
   };
 
   onReconcile = async (amount: number | null) => {

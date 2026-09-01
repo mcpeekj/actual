@@ -15,7 +15,9 @@ import { t } from 'i18next';
 
 import { aqlQuery } from '#queries/aqlQuery';
 
-export async function lockTransactions(accountId: AccountEntity['id']) {
+export async function lockTransactions(
+  accountId: AccountEntity['id'],
+): Promise<Array<TransactionEntity['id']>> {
   const { data } = await aqlQuery(
     q('transactions')
       .filter({ cleared: true, reconciled: false, account: accountId })
@@ -42,6 +44,12 @@ export async function lockTransactions(accountId: AccountEntity['id']) {
   });
 
   await send('transactions-batch-update', changes);
+
+  // Return the ids that were just locked so callers can clear the client-side
+  // "new transaction" (bold) state for rows that now render as reconciled.
+  return changes.updated
+    .map(change => change.id)
+    .filter((id): id is TransactionEntity['id'] => id != null);
 }
 
 export async function unlockTransaction(
@@ -82,14 +90,17 @@ export async function getClearedBalance(accountId: AccountEntity['id']) {
 export async function finishReconciliation(
   accountId: AccountEntity['id'],
   reconcileAmount: number | null,
-  lock: () => Promise<void> = () => lockTransactions(accountId),
-) {
+  lock: () => Promise<Array<TransactionEntity['id']>> = () =>
+    lockTransactions(accountId),
+): Promise<Array<TransactionEntity['id']>> {
   const cleared = await getClearedBalance(accountId);
   const targetDiff = (reconcileAmount ?? 0) - cleared;
 
   if (targetDiff === 0) {
-    await lock();
+    return await lock();
   }
+
+  return [];
 }
 
 export async function createReconciliationTransaction(

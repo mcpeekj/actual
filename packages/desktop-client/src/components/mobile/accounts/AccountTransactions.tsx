@@ -42,6 +42,7 @@ import { collapseModals, pushModal } from '#modals/modalsSlice';
 import * as queries from '#queries';
 import { useDispatch } from '#redux';
 import * as bindings from '#spreadsheet/bindings';
+import { updateNewTransactions } from '#transactions/transactionsSlice';
 
 export function AccountTransactions({
   account,
@@ -234,7 +235,16 @@ function TransactionListWithPreviews({
   const { onBatchEdit } = useTransactionBatchActions();
 
   const onDoneReconciling = useCallback(async () => {
-    await reconciliation.finishReconciliation(account.id, reconcileAmount);
+    const lockedTransactionIds = await reconciliation.finishReconciliation(
+      account.id,
+      reconcileAmount,
+    );
+
+    // Reconciling settles transactions, so drop the "new" (bold) state for
+    // the locked ones — they stop standing out once reconciled.
+    lockedTransactionIds.forEach(id => {
+      dispatch(updateNewTransactions({ id }));
+    });
 
     updateAccount({
       account: {
@@ -250,7 +260,7 @@ function TransactionListWithPreviews({
       },
       { replace: true },
     );
-  }, [account, reconcileAmount, setSearchParams, updateAccount]);
+  }, [account, reconcileAmount, setSearchParams, updateAccount, dispatch]);
 
   const onCreateReconciliationTransaction = useCallback(
     async (targetDiff: number) => {
