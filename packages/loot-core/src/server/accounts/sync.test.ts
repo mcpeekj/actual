@@ -934,4 +934,160 @@ describe('SimpleFin batch sync', () => {
     expect(missingResult.res.error_code).toBe('ACCOUNT_MISSING');
     expect(missingResult.res.error_type).toBe('ACCOUNT_MISSING');
   });
+
+  test('syncs all accounts across multiple chunked requests', async () => {
+    // 6 accounts -> 2 chunked requests (5 + 1)
+    const providerAccountIds = [
+      'sf-account-1',
+      'sf-account-2',
+      'sf-account-3',
+      'sf-account-4',
+      'sf-account-5',
+      'sf-account-6',
+    ];
+    const acctIds = [];
+    for (let i = 0; i < providerAccountIds.length; i++) {
+      const id = 'acct-' + (i + 1);
+      await db.insertAccount({
+        id,
+        account_id: providerAccountIds[i],
+        name: 'Account ' + (i + 1),
+        account_sync_source: 'simpleFin',
+      });
+      await db.insertPayee({
+        id: 'transfer-' + id,
+        name: '',
+        transfer_acct: id,
+      });
+      acctIds.push(id);
+    }
+
+    // Track the account ids sent in each request
+    const requests = [];
+    vi.mocked(asyncStorage.getItem).mockResolvedValue('test-token');
+    handlers['/simplefin/transactions'] = data => {
+      const ids = data.accountId;
+      requests.push(ids);
+      const response = {};
+      for (const id of ids) {
+        response[id] = {
+          transactions: {
+            all: [
+              {
+                booked: true,
+                date: '2017-10-02',
+                payeeName: 'Coffee Shop',
+                transactionAmount: { amount: '-12.34' },
+                transactionId: 'provider-tx-' + id,
+              },
+            ],
+            booked: [],
+            pending: [],
+          },
+          balances: [],
+          startingBalance: 0,
+        };
+      }
+      return response;
+    };
+
+    const results = await simpleFinBatchSync(
+      providerAccountIds.map((accountId, i) => ({
+        id: acctIds[i],
+        account_id: accountId,
+      })),
+    );
+
+    // Every account should sync successfully
+    expect(results).toHaveLength(6);
+    for (const r of results) {
+      expect(r.res.error_code).toBeUndefined();
+      // starting balance + the imported transaction
+      expect(r.res.added).toHaveLength(2);
+    }
+
+    // The accounts should have been split into multiple requests, each no
+    // larger than the chunk size
+    expect(requests.length).toBeGreaterThan(1);
+    for (const req of requests) {
+      expect(req.length).toBeLessThanOrEqual(5);
+    }
+  });
+
+  test('continues syncing other chunks when one chunk request fails', async () => {
+    const providerAccountIds = [
+      'sf-account-1',
+      'sf-account-2',
+      'sf-account-3',
+      'sf-account-4',
+      'sf-account-5',
+      'sf-account-6',
+    ];
+    const acctIds = [];
+    for (let i = 0; i < providerAccountIds.length; i++) {
+      const id = 'acct-' + (i + 1);
+      await db.insertAccount({
+        id,
+        account_id: providerAccountIds[i],
+        name: 'Account ' + (i + 1),
+        account_sync_source: 'simpleFin',
+      });
+      await db.insertPayee({
+        id: 'transfer-' + id,
+        name: '',
+        transfer_acct: id,
+      });
+      acctIds.push(id);
+    }
+
+    // The first chunk (accounts 1-5) fails; the second chunk (account 6) works
+    vi.mocked(asyncStorage.getItem).mockResolvedValue('test-token');
+    handlers['/simplefin/transactions'] = data => {
+      const ids = data.accountId;
+      if (ids.includes('sf-account-1')) {
+        throw new Error('network failure');
+      }
+      const response = {};
+      for (const id of ids) {
+        response[id] = {
+          transactions: {
+            all: [
+              {
+                booked: true,
+                date: '2017-10-02',
+                payeeName: 'Coffee Shop',
+                transactionAmount: { amount: '-12.34' },
+                transactionId: 'provider-tx-' + id,
+              },
+            ],
+            booked: [],
+            pending: [],
+          },
+          balances: [],
+          startingBalance: 0,
+        };
+      }
+      return response;
+    };
+
+    const results = await simpleFinBatchSync(
+      providerAccountIds.map((accountId, i) => ({
+        id: acctIds[i],
+        account_id: accountId,
+      })),
+    );
+
+    // The failed chunk's accounts should report an error...
+    for (let i = 0; i < 5; i++) {
+      const r = results.find(r => r.accountId === acctIds[i]);
+      expect(r).toBeDefined();
+      expect(r.res.error_code).toBe('TIMED_OUT');
+    }
+
+    // ...while the remaining chunk still syncs successfully
+    const okResult = results.find(r => r.accountId === acctIds[5]);
+    expect(okResult).toBeDefined();
+    expect(okResult.res.error_code).toBeUndefined();
+    expect(okResult.res.added).toHaveLength(2);
+  });
 });

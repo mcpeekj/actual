@@ -1262,6 +1262,13 @@ export async function syncAccount(
   );
 }
 
+// SimpleFin's bulk endpoint can return incomplete transaction data when many
+// accounts are requested in a single call — some accounts come back with a
+// balance but an empty transaction list, so the sync marks them "ok" while
+// silently skipping their transactions. Request accounts in smaller chunks so
+// each response stays small enough to be complete.
+const SIMPLEFIN_BATCH_CHUNK_SIZE = 5;
+
 export async function simpleFinBatchSync(
   accounts: Array<Pick<AccountEntity, 'id' | 'account_id'>>,
 ) {
@@ -1269,12 +1276,40 @@ export async function simpleFinBatchSync(
     accounts.map(async a => getAccountSyncStartDate(a.id)),
   );
 
-  const res = await downloadSimpleFinTransactions(
-    accounts.map(a => a.account_id),
-    startDates,
-  );
+  const res: Record<
+    string,
+    {
+      transactions?: unknown;
+      accountBalance?: unknown;
+      startingBalance?: unknown;
+      error_type?: string;
+      error_code?: string;
+    }
+  > = {};
 
-  if (!res) {
+  for (let i = 0; i < accounts.length; i += SIMPLEFIN_BATCH_CHUNK_SIZE) {
+    const chunk = accounts.slice(i, i + SIMPLEFIN_BATCH_CHUNK_SIZE);
+    const chunkStartDates = startDates.slice(i, i + SIMPLEFIN_BATCH_CHUNK_SIZE);
+
+    try {
+      const chunkRes = await downloadSimpleFinTransactions(
+        chunk.map(a => a.account_id),
+        chunkStartDates,
+      );
+      Object.assign(res, chunkRes);
+    } catch (err) {
+      // A failed chunk shouldn't take down the whole sync; surface the error
+      // per account so the caller can report it.
+      for (const account of chunk) {
+        res[account.account_id] = {
+          error_type: err?.category || 'INTERNAL_ERROR',
+          error_code: err?.code || 'INTERNAL_ERROR',
+        };
+      }
+    }
+  }
+
+  if (Object.keys(res).length === 0) {
     return accounts.map(account => ({
       accountId: account.id,
       res: {
