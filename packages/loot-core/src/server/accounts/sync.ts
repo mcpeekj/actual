@@ -109,6 +109,53 @@ async function getAccountNewestTransaction(id): Promise<string | null> {
   return row.data?.[0]?.date ?? null;
 }
 
+// The SimpleFin Bridge intermittently drops transactions for some accounts —
+// the account comes back with a balance but an empty or truncated transaction
+// list. If an account that already has transactions comes back with none, or
+// with a newest transaction older than what the account already has, the
+// response is incomplete — retry the account alone. Best-effort: a failure here
+// falls through to the original (possibly incomplete) response.
+async function retryIfIncomplete(
+  download: {
+    transactions?: unknown;
+    accountBalance?: unknown;
+    startingBalance?: unknown;
+  },
+  accountId,
+  startDate,
+  acctId,
+): Promise<{
+  transactions?: unknown;
+  accountBalance?: unknown;
+  startingBalance?: unknown;
+}> {
+  const transactions = download.transactions;
+  if (!Array.isArray(transactions)) return download;
+  try {
+    const newestExisting = await getAccountNewestTransaction(accountId);
+    const newestResponse = transactions.reduce((max, t) => {
+      const d = (t as { date?: string })?.date;
+      return d && (!max || d > max) ? d : max;
+    }, null);
+    if (
+      transactions.length === 0 ||
+      (newestExisting && newestResponse && newestResponse < newestExisting)
+    ) {
+      const retry = (await downloadSimpleFinTransactions(acctId, startDate)) as {
+        transactions?: unknown[];
+        accountBalance?: unknown;
+        startingBalance?: unknown;
+      };
+      if (retry?.transactions?.length > 0) {
+        return retry;
+      }
+    }
+  } catch {
+    // best-effort
+  }
+  return download;
+}
+
 async function getAccountSyncStartDate(id) {
   // Many GoCardless integrations do not support getting more than 90 days
   // worth of data, so make that the earliest possible limit.
@@ -1254,6 +1301,7 @@ export async function syncAccount(
   let download;
   if (acctRow.account_sync_source === 'simpleFin') {
     download = await downloadSimpleFinTransactions(acctId, syncStartDate);
+    download = await retryIfIncomplete(download, id, syncStartDate, acctId);
   } else if (acctRow.account_sync_source === 'pluggyai') {
     download = await downloadPluggyAiTransactions(
       acctId,
@@ -1349,7 +1397,7 @@ export async function simpleFinBatchSync(
   const promises = [];
   for (let i = 0; i < accounts.length; i++) {
     const account = accounts[i];
-    const download = res[account.account_id];
+    let download = res[account.account_id];
 
     if (!download || Object.keys(download).length === 0) {
       promises.push(
@@ -1400,36 +1448,12 @@ export async function simpleFinBatchSync(
     // what the account already has, the response is incomplete — retry the
     // account alone. This is best-effort: a failure here shouldn't fail the
     // whole sync.
-    if (!newAccount && Array.isArray(download.transactions)) {
-      try {
-        const newestExisting = await getAccountNewestTransaction(account.id);
-        const newestResponse = download.transactions.reduce((max, t) => {
-          const d = t?.date;
-          return d && (!max || d > max) ? d : max;
-        }, null);
-        if (
-          download.transactions.length === 0 ||
-          (newestExisting && newestResponse && newestResponse < newestExisting)
-        ) {
-          const retry = (await downloadSimpleFinTransactions(
-            account.account_id,
-            startDates[i],
-          )) as {
-            transactions?: unknown[];
-            accountBalance?: unknown;
-            startingBalance?: unknown;
-          };
-          if (retry?.transactions?.length > 0) {
-            download.transactions = retry.transactions;
-            download.startingBalance = retry.startingBalance;
-            download.accountBalance = retry.accountBalance;
-          }
-        }
-      } catch {
-        // Best-effort: if the retry check fails, fall through and use the
-        // original (possibly incomplete) response.
-      }
-    }
+    download = await retryIfIncomplete(
+      download,
+      account.id,
+      startDates[i],
+      account.account_id,
+    );
 
     promises.push(
       processBankSyncDownload(download, account.id, acctRow, newAccount)
