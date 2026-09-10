@@ -25,6 +25,7 @@ export type AccountEntity = {
   balance_current: number | null;
   balance_available: number | null;
   balance_limit: number | null;
+  balance_date: string | null;
   account_sync_source: AccountSyncSource | null;
   last_sync: string | null;
   bank_sync_status: BankSyncStatus | null;

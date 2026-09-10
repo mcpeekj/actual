@@ -1090,4 +1090,83 @@ describe('SimpleFin batch sync', () => {
     expect(okResult.res.error_code).toBeUndefined();
     expect(okResult.res.added).toHaveLength(2);
   });
+
+  test('retries an account that has existing transactions but comes back empty', async () => {
+    const providerAccountId = 'sf-account-1';
+    const acctId = await db.insertAccount({
+      id: 'acct-1',
+      account_id: providerAccountId,
+      name: 'Account 1',
+      account_sync_source: 'simpleFin',
+    });
+    await db.insertPayee({
+      id: 'transfer-' + acctId,
+      name: '',
+      transfer_acct: acctId,
+    });
+
+    // Give the account an existing transaction so it's not treated as a new
+    // account (new accounts legitimately have no transactions to import)
+    await db.insertTransaction({
+      id: 'existing-tx',
+      account: acctId,
+      amount: -1000,
+      date: '2017-10-01',
+    });
+
+    // The batch request comes back with an empty transaction list (the SimpleFin
+    // Bridge intermittently drops transactions for some accounts in a
+    // multi-account request); the per-account retry returns the transactions.
+    let callCount = 0;
+    vi.mocked(asyncStorage.getItem).mockResolvedValue('test-token');
+    handlers['/simplefin/transactions'] = data => {
+      callCount++;
+      const isBatch = Array.isArray(data.accountId);
+      const tx = {
+        transactions: {
+          all: [
+            {
+              booked: true,
+              date: '2017-10-02',
+              payeeName: 'Coffee Shop',
+              transactionAmount: { amount: '-12.34' },
+              transactionId: 'provider-tx-1',
+            },
+          ],
+          booked: [],
+          pending: [],
+        },
+        balances: [],
+        startingBalance: 0,
+      };
+      if (callCount === 1) {
+        // Batch call: empty transactions
+        return {
+          [providerAccountId]: {
+            transactions: { all: [], booked: [], pending: [] },
+            balances: [],
+            startingBalance: 0,
+          },
+          errors: {},
+        };
+      }
+      // Retry (single account): return the transactions
+      return isBatch ? { [providerAccountId]: tx, errors: {} } : tx;
+    };
+
+    const results = await simpleFinBatchSync([
+      { id: acctId, account_id: providerAccountId },
+    ]);
+
+    // The batch call plus the per-account retry
+    expect(callCount).toBe(2);
+    const result = results[0];
+    expect(result.res.error_code).toBeUndefined();
+    // The retried transaction should have been added
+    expect(result.res.added).toHaveLength(1);
+    const transactions = await getAllTransactions();
+    expect(
+      transactions.find(t => t.imported_id === 'provider-tx-1'),
+    ).toBeDefined();
+  });
 });

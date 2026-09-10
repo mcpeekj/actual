@@ -200,6 +200,13 @@ export function Balances({
   const { t } = useTranslation();
   const locale = useLocale();
 
+  const balanceTime = account?.balance_date
+    ? tsToRelativeTime(account.balance_date, locale)
+    : null;
+  const syncTime = account?.last_sync
+    ? tsToRelativeTime(account.last_sync, locale)
+    : null;
+
   return (
     <View
       style={{
@@ -268,13 +275,22 @@ export function Balances({
           balance={account.balance_current}
         />
       )}
-      {account?.last_sync && (
+      {balanceTime || syncTime ? (
         <Text style={{ color: theme.pageTextSubdued, alignSelf: 'center' }}>
-          {t('Updated {{relativeTimeAgo}}', {
-            relativeTimeAgo: tsToRelativeTime(account.last_sync, locale),
-          })}
+          {balanceTime
+            ? syncTime
+              ? t('Updated {{relativeTimeAgo}} (synced {{syncTime}})', {
+                  relativeTimeAgo: balanceTime,
+                  syncTime,
+                })
+              : t('Updated {{relativeTimeAgo}}', {
+                  relativeTimeAgo: balanceTime,
+                })
+            : t('Updated {{relativeTimeAgo}}', {
+                relativeTimeAgo: syncTime,
+              })}
         </Text>
-      )}
+      ) : null}
 
       {showExtraBalances && <MoreBalances balanceQuery={balanceQuery} />}
 

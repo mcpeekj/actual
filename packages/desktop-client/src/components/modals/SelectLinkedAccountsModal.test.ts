@@ -30,6 +30,7 @@ function makeLocalAccount(
     balance_limit: null,
     account_sync_source: null,
     last_sync: null,
+    balance_date: null,
     bank_sync_status: null,
     ...overrides,
   };

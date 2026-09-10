@@ -26,6 +26,7 @@ export type DbAccount = {
   account_sync_source?: 'simpleFin' | 'goCardless' | null;
   last_reconciled?: string | null;
   last_sync?: string | null;
+  balance_date?: string | null;
   bank_sync_status?:
     | 'ok'
     | 'pending'

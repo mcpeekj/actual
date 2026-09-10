@@ -68,8 +68,16 @@ function getAccountBalance(account) {
   }
 }
 
-async function updateAccountBalance(id: AccountEntity['id'], balance: number) {
-  await db.update('accounts', { id, balance_current: balance });
+async function updateAccountBalance(
+  id: AccountEntity['id'],
+  balance: number,
+  balanceDate?: string | null,
+) {
+  await db.update('accounts', {
+    id,
+    balance_current: balance,
+    ...(balanceDate ? { balance_date: balanceDate } : {}),
+  });
 }
 
 async function getAccountOldestTransaction(id): Promise<TransactionEntity> {
@@ -1200,7 +1208,12 @@ async function processBankSyncDownload(
     );
 
     if (currentBalance != null) {
-      await updateAccountBalance(id, currentBalance);
+      const balanceDate = download.accountBalance?.[0]?.referenceDate;
+      await updateAccountBalance(
+        id,
+        currentBalance,
+        balanceDate ? new Date(balanceDate).getTime().toString() : null,
+      );
     }
 
     return result;
@@ -1363,6 +1376,31 @@ export async function simpleFinBatchSync(
         }),
       );
       continue;
+    }
+
+    // The SimpleFin Bridge intermittently drops transactions for some accounts
+    // in a multi-account request — the account comes back with a balance but an
+    // empty transaction list. Chunking the request reduces this, but doesn't
+    // eliminate it. If an account that already has transactions in the budget
+    // comes back empty, retry the request for that account alone.
+    if (
+      !newAccount &&
+      Array.isArray(download.transactions) &&
+      download.transactions.length === 0
+    ) {
+      const retry = (await downloadSimpleFinTransactions(
+        account.account_id,
+        startDates[i],
+      )) as {
+        transactions?: unknown[];
+        accountBalance?: unknown;
+        startingBalance?: unknown;
+      };
+      if (retry?.transactions?.length > 0) {
+        download.transactions = retry.transactions;
+        download.startingBalance = retry.startingBalance;
+        download.accountBalance = retry.accountBalance;
+      }
     }
 
     promises.push(
