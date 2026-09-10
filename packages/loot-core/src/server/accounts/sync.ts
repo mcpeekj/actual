@@ -95,6 +95,20 @@ async function getAccountOldestTransaction(id): Promise<TransactionEntity> {
   ).data?.[0];
 }
 
+async function getAccountNewestTransaction(id): Promise<string | null> {
+  const row = await aqlQuery(
+    q('transactions')
+      .filter({
+        account: id,
+        date: { $lte: monthUtils.currentDay() },
+      })
+      .select('date')
+      .orderBy([{ date: 'desc' }])
+      .limit(1),
+  );
+  return row.data?.[0]?.date ?? null;
+}
+
 async function getAccountSyncStartDate(id) {
   // Many GoCardless integrations do not support getting more than 90 days
   // worth of data, so make that the earliest possible limit.
@@ -1380,26 +1394,40 @@ export async function simpleFinBatchSync(
 
     // The SimpleFin Bridge intermittently drops transactions for some accounts
     // in a multi-account request — the account comes back with a balance but an
-    // empty transaction list. Chunking the request reduces this, but doesn't
-    // eliminate it. If an account that already has transactions in the budget
-    // comes back empty, retry the request for that account alone.
-    if (
-      !newAccount &&
-      Array.isArray(download.transactions) &&
-      download.transactions.length === 0
-    ) {
-      const retry = (await downloadSimpleFinTransactions(
-        account.account_id,
-        startDates[i],
-      )) as {
-        transactions?: unknown[];
-        accountBalance?: unknown;
-        startingBalance?: unknown;
-      };
-      if (retry?.transactions?.length > 0) {
-        download.transactions = retry.transactions;
-        download.startingBalance = retry.startingBalance;
-        download.accountBalance = retry.accountBalance;
+    // empty or truncated transaction list. Chunking the request reduces this,
+    // but doesn't eliminate it. If an account that already has transactions in
+    // the budget comes back with none, or with a newest transaction older than
+    // what the account already has, the response is incomplete — retry the
+    // account alone. This is best-effort: a failure here shouldn't fail the
+    // whole sync.
+    if (!newAccount && Array.isArray(download.transactions)) {
+      try {
+        const newestExisting = await getAccountNewestTransaction(account.id);
+        const newestResponse = download.transactions.reduce((max, t) => {
+          const d = t?.date;
+          return d && (!max || d > max) ? d : max;
+        }, null);
+        if (
+          download.transactions.length === 0 ||
+          (newestExisting && newestResponse && newestResponse < newestExisting)
+        ) {
+          const retry = (await downloadSimpleFinTransactions(
+            account.account_id,
+            startDates[i],
+          )) as {
+            transactions?: unknown[];
+            accountBalance?: unknown;
+            startingBalance?: unknown;
+          };
+          if (retry?.transactions?.length > 0) {
+            download.transactions = retry.transactions;
+            download.startingBalance = retry.startingBalance;
+            download.accountBalance = retry.accountBalance;
+          }
+        }
+      } catch {
+        // Best-effort: if the retry check fails, fall through and use the
+        // original (possibly incomplete) response.
       }
     }
 
