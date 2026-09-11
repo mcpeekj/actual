@@ -64,7 +64,8 @@ export const styles: CSSProperties = {
     },
     paddingTop: 8, // height of the titlebar
     [`@media (min-width: ${tokens.breakpoint_small})`]: {
-      paddingTop: 36,
+      // titlebar height (36) + a little breathing room below the nav bar
+      paddingTop: 44,
     },
   },
   pageContent: {

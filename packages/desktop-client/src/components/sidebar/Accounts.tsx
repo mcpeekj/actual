@@ -107,7 +107,7 @@ export function Accounts() {
         style={{
           height: 1,
           backgroundColor: theme.sidebarItemBackgroundHover,
-          marginTop: 15,
+          marginTop: 8,
           flexShrink: 0,
         }}
       />

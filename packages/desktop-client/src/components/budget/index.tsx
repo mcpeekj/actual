@@ -36,6 +36,7 @@ import * as envelopeBudget from './envelope/EnvelopeBudgetComponents';
 import { EnvelopeBudgetProvider } from './envelope/EnvelopeBudgetContext';
 import * as trackingBudget from './tracking/TrackingBudgetComponents';
 import { TrackingBudgetProvider } from './tracking/TrackingBudgetContext';
+import { MonthCountSelector } from './MonthCountSelector';
 import { prewarmAllMonths, prewarmMonth } from './util';
 
 export function Budget() {
@@ -53,7 +54,7 @@ export function Budget() {
     end: startMonth,
   });
   const [budgetType = 'envelope'] = useSyncedPref('budgetType');
-  const [maxMonthsPref] = useGlobalPref('maxMonths');
+  const [maxMonthsPref, setMaxMonthsPref] = useGlobalPref('maxMonths');
   const maxMonths = maxMonthsPref || 1;
   const [initialized, setInitialized] = useState(false);
   const { data: { grouped: categoryGroups } = { grouped: [] } } =
@@ -270,6 +271,19 @@ export function Budget() {
           overflow: 'hidden',
         }}
       >
+        <View
+          style={{
+            flexDirection: 'row',
+            alignItems: 'center',
+            padding: '4px 0 2px',
+            flexShrink: 0,
+          }}
+        >
+          <MonthCountSelector
+            maxMonths={maxMonths}
+            onChange={value => setMaxMonthsPref(value)}
+          />
+        </View>
         <View style={{ flex: 1 }}>{table}</View>
       </View>
     </SheetNameProvider>

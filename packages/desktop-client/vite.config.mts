@@ -171,7 +171,13 @@ const lootCoreBackend = (): Plugin => ({
         'development',
         '--watch',
       ],
-      { cwd: lootCoreRoot, stdio: 'inherit' },
+      {
+        cwd: lootCoreRoot,
+        stdio: 'inherit',
+        // On Windows `yarn` is a .cmd shim that Node's spawn can't resolve
+        // without a shell, which silently breaks the backend watch build.
+        shell: process.platform === 'win32',
+      },
     );
     child.on('error', err => {
       server.config.logger.error(
