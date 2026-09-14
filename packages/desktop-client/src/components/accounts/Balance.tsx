@@ -3,9 +3,13 @@ import type { RefObject } from 'react';
 import { useTranslation } from 'react-i18next';
 
 import { Button } from '@actual-app/components/button';
-import { SvgArrowButtonRight1 } from '@actual-app/components/icons/v2';
+import {
+  SvgArrowButtonRight1,
+  SvgCheck,
+} from '@actual-app/components/icons/v2';
 import { Text } from '@actual-app/components/text';
 import { theme } from '@actual-app/components/theme';
+import { Tooltip } from '@actual-app/components/tooltip';
 import { View } from '@actual-app/components/view';
 import { q } from '@actual-app/core/shared/query';
 import type { Query } from '@actual-app/core/shared/query';
@@ -207,6 +211,17 @@ export function Balances({
     ? tsToRelativeTime(account.last_sync, locale)
     : null;
 
+  // The displayed "local" balance (all recorded transactions through today).
+  // When it equals the balance the bank last reported, the account is in sync:
+  // the register matches what the bank says.
+  const localBalance = useSheetValue<'balance', `balance-query-${string}`>({
+    name: balanceQuery.name,
+    query: balanceQuery.query,
+  });
+  const isOnlineBalanceMatched =
+    account?.balance_current != null &&
+    localBalance === account.balance_current;
+
   return (
     <View
       style={{
@@ -270,10 +285,28 @@ export function Balances({
       </Button>
 
       {account?.balance_current != null && (
-        <DetailedBalance
-          name={t('Online balance:')}
-          balance={account.balance_current}
-        />
+        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
+          <DetailedBalance
+            name={t('Online balance:')}
+            balance={account.balance_current}
+          />
+          {isOnlineBalanceMatched && (
+            <Tooltip
+              content={t('Local balance matches online balance')}
+              placement="top"
+            >
+              <View
+                data-testid="account-balance-match"
+                style={{ display: 'flex', alignItems: 'center' }}
+              >
+                <SvgCheck
+                  aria-label={t('Local balance matches online balance')}
+                  style={{ width: 13, height: 13, color: theme.noticeText }}
+                />
+              </View>
+            </Tooltip>
+          )}
+        </View>
       )}
       {balanceTime || syncTime ? (
         <Text style={{ color: theme.pageTextSubdued, alignSelf: 'center' }}>

@@ -1,6 +1,10 @@
 import React from 'react';
 
-import type { ScheduleEntity } from '@actual-app/core/types/models';
+import { q } from '@actual-app/core/shared/query';
+import type {
+  AccountEntity,
+  ScheduleEntity,
+} from '@actual-app/core/types/models';
 import { render, screen } from '@testing-library/react';
 
 import { useCachedSchedules } from '#hooks/useCachedSchedules';
@@ -8,7 +12,7 @@ import { useSelectedItems } from '#hooks/useSelected';
 import { useSheetValue } from '#hooks/useSheetValue';
 import { TestProviders } from '#mocks';
 
-import { SelectedBalance } from './Balance';
+import { Balances, SelectedBalance } from './Balance';
 
 vi.mock('#hooks/useSelected', () => ({
   useSelectedItems: vi.fn(),
@@ -132,5 +136,89 @@ describe('SelectedBalance – preview (scheduled) transactions', () => {
     );
 
     expect(screen.getByText('-100.00')).toBeInTheDocument();
+  });
+});
+
+function makeAccount(overrides: Partial<AccountEntity> = {}): AccountEntity {
+  return {
+    id: 'account-1',
+    name: 'Checking',
+    offbudget: 0,
+    closed: 0,
+    sort_order: 0,
+    last_reconciled: null,
+    tombstone: 0,
+    account_id: null,
+    bank: null,
+    bankName: null,
+    bankId: null,
+    mask: null,
+    official_name: null,
+    balance_current: null,
+    balance_available: null,
+    balance_limit: null,
+    balance_date: null,
+    account_sync_source: null,
+    last_sync: null,
+    bank_sync_status: null,
+    ...overrides,
+  } satisfies AccountEntity;
+}
+
+function makeBalanceQuery(accountId: string) {
+  return {
+    name: `balance-query-${accountId}`,
+    query: q('transactions').calculate({ $sum: '$amount' }),
+  } as const;
+}
+
+describe('Balances – online balance match indicator', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    vi.mocked(useCachedSchedules).mockReturnValue(mockedSchedules([]));
+    vi.mocked(useSelectedItems).mockReturnValue(new Set());
+  });
+
+  function renderBalances(account: AccountEntity) {
+    return render(
+      <TestProviders>
+        <Balances
+          balanceQuery={makeBalanceQuery(account.id)}
+          showExtraBalances={false}
+          onToggleExtraBalances={vi.fn()}
+          account={account}
+          isFiltered={false}
+        />
+      </TestProviders>,
+    );
+  }
+
+  test('shows the match indicator when the local balance equals the online balance', () => {
+    vi.mocked(useSheetValue).mockReturnValue(-5000);
+
+    renderBalances(makeAccount({ balance_current: -5000 }));
+
+    expect(screen.getByText('Online balance:')).toBeInTheDocument();
+    expect(screen.getByTestId('account-balance-match')).toBeInTheDocument();
+  });
+
+  test('hides the match indicator when the balances differ', () => {
+    vi.mocked(useSheetValue).mockReturnValue(-5050);
+
+    renderBalances(makeAccount({ balance_current: -5000 }));
+
+    expect(
+      screen.queryByTestId('account-balance-match'),
+    ).not.toBeInTheDocument();
+  });
+
+  test('hides the match indicator when there is no online balance', () => {
+    vi.mocked(useSheetValue).mockReturnValue(-5000);
+
+    renderBalances(makeAccount({ balance_current: null }));
+
+    expect(
+      screen.queryByTestId('account-balance-match'),
+    ).not.toBeInTheDocument();
   });
 });
