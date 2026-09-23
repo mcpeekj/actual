@@ -9,7 +9,7 @@ import { theme } from '@actual-app/components/theme';
 import { View } from '@actual-app/components/view';
 import type { AccountEntity } from '@actual-app/core/types/models';
 
-import { useUnlinkAccountMutation } from '#accounts';
+import { useSyncAccountsMutation, useUnlinkAccountMutation } from '#accounts';
 import { getFailedSyncError, isAccountFailedSync } from '#accounts/syncStatus';
 import { Link } from '#components/common/Link';
 import { authorizeBank as authorizeEnableBanking } from '#enablebanking';
@@ -116,6 +116,7 @@ export function AccountSyncCheck() {
   );
 
   const unlinkAccount = useUnlinkAccountMutation();
+  const syncAccount = useSyncAccountsMutation();
   const unlink = useCallback(
     (acc: AccountEntity) => {
       if (acc.id) {
@@ -126,6 +127,22 @@ export function AccountSyncCheck() {
     },
     [unlinkAccount],
   );
+
+  const retrySync = useCallback(() => {
+    setOpen(false);
+
+    const failedIds = accounts
+      .filter(acc => acc.bank && isAccountFailedSync(acc))
+      .map(acc => acc.id);
+
+    // Sequential awaits: the mutation guards against parallel syncs via the
+    // `accountsSyncing` store flag, which it resets after each run.
+    void (async () => {
+      for (const id of failedIds) {
+        await syncAccount.mutateAsync({ id });
+      }
+    })();
+  }, [syncAccount, accounts]);
 
   if (!id) {
     return null;
@@ -197,11 +214,24 @@ export function AccountSyncCheck() {
               >
                 <Trans>Reauthorize</Trans>
               </Button>
+              <Button onPress={() => retrySync()} style={{ marginLeft: 5 }}>
+                <Trans>Retry sync</Trans>
+              </Button>
             </>
           ) : (
-            <Button onPress={() => unlink(account)}>
-              <Trans>Unlink account</Trans>
-            </Button>
+            <>
+              <Button onPress={() => unlink(account)}>
+                <Trans>Unlink account</Trans>
+              </Button>
+              <Button
+                variant="primary"
+                autoFocus
+                onPress={() => retrySync()}
+                style={{ marginLeft: 5 }}
+              >
+                <Trans>Retry sync</Trans>
+              </Button>
+            </>
           )}
         </View>
       </Popover>
