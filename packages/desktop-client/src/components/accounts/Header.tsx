@@ -713,7 +713,6 @@ function AccountNameField({
               <Button
                 variant="bare"
                 aria-label={t('Open website')}
-                className="hover-visible"
                 onPress={() => {
                   const url = websiteUrl.startsWith('http')
                     ? websiteUrl
