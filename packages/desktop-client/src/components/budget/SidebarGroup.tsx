@@ -147,8 +147,8 @@ export function SidebarGroup({
       canToggleRollover && {
         name: 'rollover',
         text: groupRolloverEnabled
-          ? t('Reset group at month end')
-          : t('Roll over group to next month'),
+          ? t('Reset group monthly')
+          : t('Roll over group monthly'),
         onClick: () => {
           onBudgetAction(currentMonth, 'group-rollover', {
             group: group.id,
