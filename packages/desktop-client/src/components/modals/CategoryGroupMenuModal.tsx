@@ -376,8 +376,8 @@ function AdditionalCategoryGroupMenu({
                         {
                           name: 'group-rollover',
                           text: groupRolloverEnabled
-                            ? t('Reset group at month end')
-                            : t('Roll over group to next month'),
+                            ? t('Reset group monthly')
+                            : t('Roll over group monthly'),
                         },
                       ]
                     : []),
