@@ -132,5 +132,11 @@ export function uncategorizedTransactions() {
         'payee.transfer_acct': null,
       },
     ],
+    $and: [
+      // $0 pending card-authorization holds are hidden from the register
+      // (see Account.tsx), so they must not be counted as "uncategorized"
+      // either: the badge would point at a list that never shows them.
+      { $or: [{ amount: { $ne: 0 } }, { cleared: { $eq: true } }] },
+    ],
   });
 }
