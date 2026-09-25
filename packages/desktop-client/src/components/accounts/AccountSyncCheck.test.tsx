@@ -33,7 +33,6 @@ const mocks = vi.hoisted(() => ({
       bank_sync_status: 'ok',
     },
   ] as AccountEntity[],
-  unlinkMutate: vi.fn(),
   retryMutateAsync: vi.fn().mockResolvedValue(true),
 }));
 
@@ -42,7 +41,6 @@ vi.mock('react-router', () => ({
 }));
 
 vi.mock('#accounts', () => ({
-  useUnlinkAccountMutation: () => ({ mutate: mocks.unlinkMutate }),
   useSyncAccountsMutation: () => ({ mutateAsync: mocks.retryMutateAsync }),
 }));
 
@@ -55,11 +53,20 @@ vi.mock('#hooks/useFailedAccounts', () => ({
 }));
 
 describe('AccountSyncCheck', () => {
+  let openSpy: ReturnType<typeof vi.spyOn>;
+
   beforeEach(() => {
     vi.clearAllMocks();
+    // jsdom doesn't implement window.open.
+    openSpy = vi.spyOn(window, 'open').mockImplementation(() => null);
   });
 
-  it('shows "Retry sync" alongside "Unlink account" for a needs-attention account', async () => {
+  afterEach(() => {
+    openSpy.mockRestore();
+    mocks.accounts[0].account_sync_source = 'simpleFin';
+  });
+
+  it('shows "Retry sync" and "Open SimpleFIN" for a needs-attention account', async () => {
     render(
       <TestProviders>
         <AccountSyncCheck />
@@ -75,8 +82,9 @@ describe('AccountSyncCheck', () => {
       screen.getByText(/experiencing connection problems/i),
     );
 
-    expect(screen.getByText('Unlink account')).toBeInTheDocument();
     expect(screen.getByText('Retry sync')).toBeInTheDocument();
+    expect(screen.getByText('Open SimpleFIN')).toBeInTheDocument();
+    expect(screen.queryByText('Unlink account')).not.toBeInTheDocument();
   });
 
   it('re-syncs all flagged accounts when "Retry sync" is pressed', async () => {
@@ -98,7 +106,7 @@ describe('AccountSyncCheck', () => {
     expect(mocks.retryMutateAsync).toHaveBeenCalledWith({ id: 'acct-2' });
   });
 
-  it('still lets the user unlink the account', async () => {
+  it('opens the SimpleFIN bridge site when "Open SimpleFIN" is pressed', async () => {
     render(
       <TestProviders>
         <AccountSyncCheck />
@@ -109,7 +117,28 @@ describe('AccountSyncCheck', () => {
       screen.getByText(/experiencing connection problems/i),
     );
 
-    await userEvent.click(screen.getByText('Unlink account'));
-    expect(mocks.unlinkMutate).toHaveBeenCalledWith({ id: 'acct-1' });
+    await userEvent.click(screen.getByText('Open SimpleFIN'));
+    expect(openSpy).toHaveBeenCalledWith(
+      'https://bridge.simplefin.org/',
+      '_blank',
+      'noopener,noreferrer',
+    );
+  });
+
+  it('does not offer SimpleFIN for accounts synced elsewhere', async () => {
+    mocks.accounts[0].account_sync_source = 'goCardless';
+
+    render(
+      <TestProviders>
+        <AccountSyncCheck />
+      </TestProviders>,
+    );
+
+    await userEvent.click(
+      screen.getByText(/experiencing connection problems/i),
+    );
+
+    expect(screen.getByText('Retry sync')).toBeInTheDocument();
+    expect(screen.queryByText('Open SimpleFIN')).not.toBeInTheDocument();
   });
 });

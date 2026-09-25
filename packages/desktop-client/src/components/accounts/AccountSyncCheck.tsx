@@ -9,7 +9,7 @@ import { theme } from '@actual-app/components/theme';
 import { View } from '@actual-app/components/view';
 import type { AccountEntity } from '@actual-app/core/types/models';
 
-import { useSyncAccountsMutation, useUnlinkAccountMutation } from '#accounts';
+import { useSyncAccountsMutation } from '#accounts';
 import { getFailedSyncError, isAccountFailedSync } from '#accounts/syncStatus';
 import { Link } from '#components/common/Link';
 import { authorizeBank as authorizeEnableBanking } from '#enablebanking';
@@ -115,18 +115,17 @@ export function AccountSyncCheck() {
     [dispatch],
   );
 
-  const unlinkAccount = useUnlinkAccountMutation();
   const syncAccount = useSyncAccountsMutation();
-  const unlink = useCallback(
-    (acc: AccountEntity) => {
-      if (acc.id) {
-        unlinkAccount.mutate({ id: acc.id });
-      }
-
-      setOpen(false);
-    },
-    [unlinkAccount],
-  );
+  // SimpleFIN accounts are re-authorized on SimpleFIN's own site: the user
+  // resets the connection there, then pastes the new token into Actual.
+  const openSimpleFin = useCallback(() => {
+    setOpen(false);
+    window.open(
+      'https://bridge.simplefin.org/',
+      '_blank',
+      'noopener,noreferrer',
+    );
+  }, []);
 
   const retrySync = useCallback(() => {
     setOpen(false);
@@ -161,6 +160,7 @@ export function AccountSyncCheck() {
   const showAuth =
     (type === 'ITEM_ERROR' && code === 'ITEM_LOGIN_REQUIRED') ||
     (type === 'INVALID_INPUT' && code === 'INVALID_ACCESS_TOKEN');
+  const isSimpleFin = account.account_sync_source === 'simpleFin';
 
   return (
     <View>
@@ -203,14 +203,10 @@ export function AccountSyncCheck() {
         <View style={{ justifyContent: 'flex-end', flexDirection: 'row' }}>
           {showAuth ? (
             <>
-              <Button onPress={() => unlink(account)}>
-                <Trans>Unlink</Trans>
-              </Button>
               <Button
                 variant="primary"
                 autoFocus
                 onPress={() => reauth(account)}
-                style={{ marginLeft: 5 }}
               >
                 <Trans>Reauthorize</Trans>
               </Button>
@@ -219,19 +215,14 @@ export function AccountSyncCheck() {
               </Button>
             </>
           ) : (
-            <>
-              <Button onPress={() => unlink(account)}>
-                <Trans>Unlink account</Trans>
-              </Button>
-              <Button
-                variant="primary"
-                autoFocus
-                onPress={() => retrySync()}
-                style={{ marginLeft: 5 }}
-              >
-                <Trans>Retry sync</Trans>
-              </Button>
-            </>
+            <Button variant="primary" autoFocus onPress={() => retrySync()}>
+              <Trans>Retry sync</Trans>
+            </Button>
+          )}
+          {isSimpleFin && (
+            <Button onPress={openSimpleFin} style={{ marginLeft: 5 }}>
+              <Trans>Open SimpleFIN</Trans>
+            </Button>
           )}
         </View>
       </Popover>
